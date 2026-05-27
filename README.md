@@ -1,62 +1,349 @@
 # cargo-tsn
 
-tsn 项目管理工具。
+Project manager for the tsn toolchain.
 
-## 安装
+## Installation
 
 ```bash
 cargo install cargo-tsn
 ```
 
-## 命令
+## Overview
 
-### cargo tsn new <name>
+The tsn toolchain consists of three tools:
 
-创建 tsn 项目。
+| Tool | Purpose | Command |
+|------|---------|---------|
+| **tsn** | TypeScript to native compiler | `tsn main.ts` |
+| **tsnp** | Plugin configuration generator | `tsnp gen <crate>` |
+| **cargo-tsn** | Project manager | `cargo tsn new <name>` |
+
+## Commands
+
+### cargo tsn new \<name\>
+
+Create a new tsn project.
 
 ```bash
 cargo tsn new my-project
-
-# 生成：
-# my-project/
-# ├── Cargo.toml
-# ├── src/
-# │   └── lib.rs
-# ├── main.ts
-# └── tsnp/
 ```
 
-### cargo tsn add <crate>
+**Generated structure:**
 
-添加 Rust crate 依赖并生成插件。
+```
+my-project/
+├── Cargo.toml       # Rust project configuration
+├── src/
+│   └── lib.rs       # FFI functions (user writes here)
+├── main.ts          # TypeScript entry point
+└── tsnp/            # Plugin configurations
+```
+
+**Cargo.toml:**
+
+```toml
+[package]
+name = "my-project"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+```
+
+**src/lib.rs:**
+
+```rust
+// Export FFI functions here
+// Example:
+// #[no_mangle]
+// pub extern "C" fn my_func() -> i32 { 0 }
+```
+
+### cargo tsn add \<crate\>
+
+Add a Rust crate dependency and generate plugin configuration.
 
 ```bash
 cargo tsn add regex
-
-# 做了什么：
-# 1. cargo add regex          # 下载依赖
-# 2. tsnp gen regex           # 生成插件
-# 3. 放到 tsnp/regex/
 ```
 
-## 工作流
+**What it does:**
+
+1. Runs `cargo add <crate>` to download the dependency
+2. Runs `tsnp gen <crate>` to generate plugin configuration
+3. Places output in `tsnp/<crate>/`
+
+**Generated files:**
+
+```
+tsnp/<crate>/
+├── ts-native.toml    # Function mapping configuration
+├── index.d.ts        # TypeScript type definitions
+└── README.md         # Usage documentation
+```
+
+**Note:** Most crates don't have FFI functions, so the generated configuration will be empty. Users need to:
+
+1. Write FFI wrapper functions in `src/lib.rs`
+2. Edit `tsnp/<crate>/ts-native.toml` to configure function mappings
+
+### cargo tsn func
+
+Interactively add FFI functions.
 
 ```bash
-# 1. 创建项目
+cargo tsn func
+```
+
+**Interactive flow:**
+
+```
+Current directory: .
+
+Select crate:
+[1] regex      (tsnp/regex/)
+[2] math       (tsnp/math/)
+[q] Quit
+Select: 1
+
+regex selected.
+
+Function name (or 'q'): add
+Parameters (e.g., 'a: i32, b: i32'): a: i32, b: i32
+Return type (e.g., 'i32'): i32
+
+✅ Added to src/lib.rs
+✅ Updated tsnp/regex/ts-native.toml
+
+Function name (or 'q'): multiply
+Parameters (e.g., 'a: i32, b: i32'): a: i32, b: i32
+Return type (e.g., 'i32'): i32
+
+✅ Added to src/lib.rs
+✅ Updated tsnp/regex/ts-native.toml
+
+Function name (or 'q'): q
+
+Select crate:
+[1] regex      (tsnp/regex/)
+[2] math       (tsnp/math/)
+[q] Quit
+Select: 2
+
+math selected.
+
+Function name (or 'q'): square
+Parameters (e.g., 'n: i32'): n: i32
+Return type (e.g., 'i32'): i32
+
+✅ Added to src/lib.rs
+✅ Updated tsnp/math/ts-native.toml
+
+Function name (or 'q'): q
+
+Select crate:
+[1] regex      (tsnp/regex/)
+[2] math       (tsnp/math/)
+[q] Quit
+Select: q
+
+Done. 3 FFI function(s) added.
+```
+
+**Interaction logic:**
+
+- Type function name, parameters, and return type
+- Type `q` to return to crate selection
+- Type `q` at crate selection to exit
+- Can switch between crates to add functions to multiple plugins
+
+**What gets generated:**
+
+1. **src/lib.rs** - FFI function stub:
+
+```rust
+#[no_mangle]
+pub extern "C" fn add(a: i32, b: i32) -> i32 {
+    // TODO: implement
+    0 as i32
+}
+```
+
+2. **tsnp/\<crate\>/ts-native.toml** - Function mapping:
+
+```toml
+[functions]
+"add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
+```
+
+## Workflow
+
+### Basic workflow
+
+```bash
+# 1. Create project
 cargo tsn new my-project
 cd my-project
 
-# 2. 添加依赖
+# 2. Add dependencies
 cargo tsn add regex
 
-# 3. 编辑 src/lib.rs 写 FFI（如果需要）
+# 3. Add FFI functions interactively
+cargo tsn func
 
-# 4. 编辑 tsnp/ 下的配置（如果需要）
+# 4. Implement FFI functions (edit src/lib.rs)
 
-# 5. 编译
+# 5. Compile
 tsn main.ts
+
+# 6. Run
+./a.exe
 ```
 
-## 许可证
+### Complete example
+
+```bash
+# Create project
+cargo tsn new calculator
+cd calculator
+
+# Add dependency
+cargo tsn add math
+
+# Add FFI functions
+cargo tsn func
+
+# Select: 1 (math selected)
+# Function name: add
+# Parameters: a: i32, b: i32
+# Return type: i32
+# Function name: subtract
+# Parameters: a: i32, b: i32
+# Return type: i32
+# Function name: q
+# Select: q
+
+# Edit src/lib.rs to implement functions:
+# #[no_mangle]
+# pub extern "C" fn add(a: i32, b: i32) -> i32 {
+#     a + b
+# }
+
+# Edit main.ts:
+# function main() {
+#     print(add(1, 2));
+#     return 0;
+# }
+
+# Compile and run
+tsn main.ts
+./a.exe  # Output: 3
+```
+
+## Type Mapping
+
+When using `cargo tsn func`, Rust types are automatically mapped to TypeScript types:
+
+| Rust Type | TypeScript Type |
+|-----------|-----------------|
+| i8, u8, i16, u16, i32, u32, i64, u64, isize, usize | number |
+| f32, f64 | number |
+| *const c_char, *mut c_char | string |
+| &str | string |
+| *const T, *mut T | number (pointer) |
+| () | void |
+
+## Project Structure
+
+A complete tsn project:
+
+```
+my-project/
+├── Cargo.toml           # Rust configuration
+├── Cargo.lock           # Dependency lock file
+├── src/
+│   └── lib.rs           # FFI functions
+├── main.ts              # TypeScript code
+├── tsnp/                # Plugin configurations
+│   ├── regex/
+│   │   ├── ts-native.toml
+│   │   ├── index.d.ts
+│   │   └── README.md
+│   └── math/
+│       ├── ts-native.toml
+│       ├── index.d.ts
+│       └── README.md
+├── a.o                  # Compiled object file
+└── a.exe                # Native executable
+```
+
+## ts-native.toml Format
+
+```toml
+[package]
+name = "tsnp-regex"
+version = "0.1.0"
+
+[functions]
+"add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
+"multiply" = { args = ["number", "number"], ret = "number", impl_name = "multiply" }
+
+[link]
+lib = "regex"
+```
+
+## Notes
+
+### Crates without FFI functions
+
+Most Rust crates don't export FFI functions (`#[no_mangle] extern "C"`). When running `cargo tsn add <crate>`:
+
+- Dependency is downloaded
+- Empty plugin configuration is generated
+- User must write FFI wrappers in `src/lib.rs`
+
+### Writing FFI wrappers
+
+To use a crate without FFI functions, wrap its functionality:
+
+```rust
+use some_crate::SomeType;
+
+#[no_mangle]
+pub extern "C" fn my_wrapper(arg: i32) -> i32 {
+    // Call crate functionality
+    let result = SomeType::new(arg);
+    result.compute()
+}
+```
+
+Then run:
+
+```bash
+cargo tsn func
+# Add the wrapper function to ts-native.toml
+```
+
+### Running from correct directory
+
+`cargo tsn func` must be run from the project root (where `tsnp/` directory exists).
+
+```
+cd my-project
+cargo tsn func  # ✅ Correct
+
+cd my-project/src
+cargo tsn func  # ❌ Error: tsnp/ not found
+```
+
+## Related Tools
+
+- **tsn** - TypeScript native compiler: `cargo install tsn`
+- **tsnp** - Plugin generator: `cargo install tsnp`
+
+## License
 
 MIT
