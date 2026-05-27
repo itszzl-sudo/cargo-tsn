@@ -1,0 +1,14 @@
+[package]
+name = "cargo-tsn"
+version = "0.1.0"
+edition = "2021"
+description = "tsn project manager"
+license = "MIT"
+authors = ["michael"]
+
+[[bin]]
+name = "cargo-tsn"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }

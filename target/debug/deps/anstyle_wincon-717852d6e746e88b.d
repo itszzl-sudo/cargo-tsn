@@ -1,0 +1,10 @@
+E:\Administrator\Documents\codebuddy-projects\cargo-tsn\target\debug\deps\anstyle_wincon-717852d6e746e88b.d: C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\lib.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\ansi.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\stream.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\windows.rs
+
+E:\Administrator\Documents\codebuddy-projects\cargo-tsn\target\debug\deps\libanstyle_wincon-717852d6e746e88b.rlib: C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\lib.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\ansi.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\stream.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\windows.rs
+
+E:\Administrator\Documents\codebuddy-projects\cargo-tsn\target\debug\deps\libanstyle_wincon-717852d6e746e88b.rmeta: C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\lib.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\ansi.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\stream.rs C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\windows.rs
+
+C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\lib.rs:
+C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\ansi.rs:
+C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\stream.rs:
+C:\Users\Administrator\.cargo\registry\src\rsproxy.cn-e3de039b2554c837\anstyle-wincon-3.0.11\src\windows.rs:
