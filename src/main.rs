@@ -3,6 +3,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::process::Command;
 
+mod publish;
+
 #[derive(Parser)]
 #[command(name = "cargo-tsn")]
 #[command(about = "tsn project manager")]
@@ -23,6 +25,19 @@ enum Commands {
     },
     #[command(about = "Interactively add FFI function")]
     Func,
+    #[command(about = "Publish plugins to codeberg")]
+    Publish {
+        #[arg(long, help = "Show what would be published without actually publishing")]
+        dry_run: bool,
+    },
+    #[command(about = "List local plugins")]
+    List,
+    #[command(about = "Install a published plugin from Codeberg")]
+    Install {
+        name: String,
+        #[arg(long, help = "Specific version to install")]
+        version: Option<String>,
+    },
 }
 
 fn main() {
@@ -32,6 +47,9 @@ fn main() {
         Commands::New { name } => cmd_new(&name),
         Commands::Add { crate_name } => cmd_add(&crate_name),
         Commands::Func => cmd_func(),
+        Commands::Publish { dry_run } => cmd_publish(dry_run),
+        Commands::List => cmd_list(),
+        Commands::Install { name, version } => cmd_install(&name, version.as_deref()),
     }
 }
 
@@ -87,18 +105,87 @@ fn cmd_add(crate_name: &str) {
         return;
     }
     
-    // 2. tsnp gen
-    println!("Running: tsnp gen {}", crate_name);
-    let status = Command::new("tsnp")
-        .args(["gen", crate_name])
-        .status()
-        .expect("Failed to run tsnp gen");
+    // 2. Check if tsnp/ directory exists and list existing tsnps
+    let tsnp_dir = std::path::Path::new("tsnp");
+    let mut use_existing = false;
+    let mut existing_tsnp_name = String::new();
     
-    if !status.success() {
-        eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
+    if tsnp_dir.exists() {
+
+        match publish::fetch_published_tsnps() {
+            Ok(tsnps) if !tsnps.is_empty() => {
+                println!("\n📦 Published tsnps available:");
+                for (i, (name, version, time)) in tsnps.iter().enumerate() {
+                    println!("  [{}] {} v{} (published: {})", i + 1, name, version, time);
+                }
+                println!("  [n] Create new tsnp for {}", crate_name);
+                println!("[q] Cancel");
+                
+                print!("\nSelect an existing tsnp or create new: ");
+                io::stdout().flush().expect("Failed to flush");
+                
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).expect("Failed to read input");
+                let input = input.trim();
+                
+                if input == "q" {
+                    println!("Cancelled.");
+                    return;
+                } else if input == "n" {
+                    use_existing = false;
+                } else if let Ok(idx) = input.parse::<usize>() {
+                    if idx >= 1 && idx <= tsnps.len() {
+                        use_existing = true;
+                        existing_tsnp_name = tsnps[idx - 1].0.clone();
+                    } else {
+                        eprintln!("Invalid selection. Creating new tsnp.");
+                        use_existing = false;
+                    }
+                } else {
+                    eprintln!("Invalid input. Creating new tsnp.");
+                    use_existing = false;
+                }
+            }
+            _ => {
+                // No published tsnps or error, proceed with new
+                use_existing = false;
+            }
+        }
     }
     
-    println!("✅ Added: {}", crate_name);
+    // 3. Generate tsnp configuration
+    if use_existing {
+        println!("\nUsing existing tsnp: {}", existing_tsnp_name);
+        if let Err(e) = publish::download_tsnp(&existing_tsnp_name, None) {
+            eprintln!("Failed to download tsnp: {:#}", e);
+            eprintln!("Falling back to tsnp gen...");
+            let status = Command::new("tsnp")
+                .args(["gen", crate_name])
+                .status()
+                .expect("Failed to run tsnp gen");
+            if !status.success() {
+                eprintln!("tsnp gen failed (crate may have no FFI functions)");
+            }
+        }
+    } else {
+        // Generate new tsnp
+        println!("\nGenerating new tsnp for: {}", crate_name);
+        println!("Running: tsnp gen {}", crate_name);
+        let status = Command::new("tsnp")
+            .args(["gen", crate_name])
+            .status()
+            .expect("Failed to run tsnp gen");
+        
+        if !status.success() {
+            eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
+        }
+    }
+    
+    println!("\n✅ Added crate: {}", crate_name);
+    println!("📝 Next steps:");
+    println!("   1. Edit tsnp/{}/ts-native.toml to configure function mappings", crate_name);
+    println!("   2. Implement FFI functions in src/lib.rs if needed");
+    println!("   3. Run 'cargo tsn publish' to publish the plugin");
 }
 
 fn cmd_func() {
@@ -119,7 +206,7 @@ fn cmd_func() {
             .expect("Failed to read tsnp directory")
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.path().is_dir())
-            .filter_map(|entry| entry.file_name().to_string_lossy().into_string().ok())
+            .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
             .collect();
         
         if crates.is_empty() {
@@ -145,7 +232,7 @@ fn cmd_func() {
             break;
         }
         
-        let selected_idx: usize = match input.parse() {
+        let selected_idx: usize = match input.parse::<usize>() {
             Ok(n) if n >= 1 && n <= crates.len() => n - 1,
             _ => {
                 eprintln!("Invalid selection.");
@@ -284,5 +371,31 @@ fn infer_ts_type(rust_type: &str) -> String {
         return "string".to_string();
     }
     
+    if ty == "bool" {
+        return "boolean".to_string();
+    }
+    
+    if ty.contains("Vec") || ty.contains("slice") {
+        return "array".to_string();
+    }
+    
+    if ty.starts_with("struct") || ty.starts_with("&mut") && !ty.contains("c_char") {
+        return "object".to_string();
+    }
+    
     "number".to_string()
+}
+
+fn cmd_publish(dry_run: bool) {
+    publish::cmd_publish(dry_run);
+}
+
+fn cmd_list() {
+    publish::cmd_list();
+}
+
+fn cmd_install(name: &str, version: Option<&str>) {
+    if let Err(e) = publish::download_tsnp(name, version) {
+        eprintln!("Failed to install: {:#}", e);
+    }
 }

@@ -73,8 +73,22 @@ cargo tsn add regex
 **What it does:**
 
 1. Runs `cargo add <crate>` to download the dependency
-2. Runs `tsnp gen <crate>` to generate plugin configuration
-3. Places output in `tsnp/<crate>/`
+2. Fetches published tsnps from Codeberg and displays them with version and publish time
+3. Prompts you to select an existing tsnp or create a new one
+4. Runs `tsnp gen <crate>` to generate plugin configuration
+5. Places output in `tsnp/<crate>/`
+
+**Interactive selection:**
+
+```
+📦 Published tsnps available:
+  [1] regex v0.2.1 (published: 2026-05-27)
+  [2] math v0.1.0 (published: 2026-05-26)
+  [n] Create new tsnp for regex
+[q] Cancel
+
+Select an existing tsnp or create new: 
+```
 
 **Generated files:**
 
@@ -83,6 +97,16 @@ tsnp/<crate>/
 ├── ts-native.toml    # Function mapping configuration
 ├── index.d.ts        # TypeScript type definitions
 └── README.md         # Usage documentation
+```
+
+**Success message:**
+
+```
+✅ Added crate: regex
+📝 Next steps:
+   1. Edit tsnp/regex/ts-native.toml to configure function mappings
+   2. Implement FFI functions in src/lib.rs if needed
+   3. Run 'cargo tsn publish' to publish the plugin
 ```
 
 **Note:** Most crates don't have FFI functions, so the generated configuration will be empty. Users need to:
@@ -177,6 +201,101 @@ pub extern "C" fn add(a: i32, b: i32) -> i32 {
 ```toml
 [functions]
 "add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
+```
+
+### cargo tsn publish
+
+Publish plugins to Codeberg repository.
+
+```bash
+cargo tsn publish
+```
+
+**Dry-run mode:**
+
+```bash
+cargo tsn publish --dry-run
+```
+
+This will show what would be published without actually uploading anything.
+
+**Environment Variables:**
+
+Before using `publish`, you must set up authentication:
+
+```bash
+# Required: Your Codeberg API token
+export CODEBERG_TOKEN="your-api-token-here"
+
+# Optional: Customize target repository
+export CODEBERG_USER="tsnp"          # Default: tsnp
+export CODEBERG_REPO="tsnp"          # Default: tsnp
+export CODEBERG_API="https://codeberg.org/api/v1"  # Default: Codeberg API
+export CODEBERG_AUTHOR="your-name"   # Default: tsnp
+```
+
+**How to get a Codeberg API token:**
+
+1. Go to https://codeberg.org/user/settings/applications
+2. Generate a new token with `repo` permissions
+3. Set it as environment variable
+
+**Interactive flow:**
+
+```
+Publishing plugins to codeberg.org
+Target: https://codeberg.org/tsnp/tsnp
+
+Available plugins:
+[1] regex
+[2] math
+[a] Publish all
+[q] Cancel
+
+Select: a
+
+[1/2] Publishing regex...
+   Version: 0.1.0, Author: tsnp
+   Files: 3
+   Creating release...
+   Uploading regex-0.1.0.zip...
+   Published: https://codeberg.org/tsnp/tsnp/releases/tag/regex-0.1.0
+✅ Published regex successfully.
+
+[2/2] Publishing math...
+   Version: 0.1.0, Author: tsnp
+   Files: 3
+   Release already exists, updating...
+   Uploading math-0.1.0.zip...
+   Published: https://codeberg.org/tsnp/tsnp/releases/tag/math-0.1.0
+✅ Published math successfully.
+
+📊 Summary: 2 succeeded, 0 failed
+```
+
+**Features:**
+
+- ✅ Automatically checks if release already exists
+- ✅ Updates existing releases instead of failing
+- ✅ Progress indicators showing current plugin
+- ✅ Summary of successes and failures
+- ✅ Detailed error messages with API responses
+- ✅ Automatic cleanup of temporary files
+
+### cargo tsn list
+
+List local plugins in the current project.
+
+```bash
+cargo tsn list
+```
+
+**Output:**
+
+```
+Listing local plugins:
+  - regex v0.1.0
+  - math v0.1.0
 ```
 
 ## Workflow
@@ -286,6 +405,7 @@ my-project/
 [package]
 name = "tsnp-regex"
 version = "0.1.0"
+tsnpVersion = "0.1.0"
 
 [functions]
 "add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
@@ -294,6 +414,10 @@ version = "0.1.0"
 [link]
 lib = "regex"
 ```
+
+**Version Fields:**
+- `version` - The original Rust crate version
+- `tsnpVersion` - The tsnp plugin version (independent versioning)
 
 ## Notes
 
