@@ -402,8 +402,7 @@ fn cmd_publish(dry_run: bool) -> Result<()> {
 }
 
 fn cmd_list() -> Result<()> {
-    publish::cmd_list();
-    Ok(())
+    publish::cmd_list()
 }
 
 fn cmd_install(name: &str, version: Option<&str>) -> Result<()> {
