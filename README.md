@@ -431,8 +431,7 @@ cargo tsn func  # ❌ Error: tsnp/ not found
 ## Related Tools
 
 - **tsn** - TypeScript native compiler: [GitHub](https://github.com/itszzl-sudo/tsn)
-- **tsiot** - Complete IoT project (docs + tsnp): [GitHub](https://github.com/itszzl-sudo/tsiot)
-- **tsnp** - Plugin generator (in tsiot): [GitHub](https://github.com/itszzl-sudo/tsiot/tree/main/tsnp)
+- **tsnp** - Plugin generator (in tsn repository)
 
 ---
 
