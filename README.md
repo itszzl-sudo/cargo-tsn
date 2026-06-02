@@ -1,6 +1,11 @@
 # cargo-tsn
 
-Project manager for the tsn toolchain.
+**Project manager for the tsn toolchain.**
+
+[![Crates.io](https://img.shields.io/crates/v/cargo-tsn.svg)](https://crates.io/crates/cargo-tsn)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/itszzl-sudo/cargo-tsn)
+
+---
 
 ## Installation
 
@@ -8,28 +13,43 @@ Project manager for the tsn toolchain.
 cargo install cargo-tsn
 ```
 
+---
+
 ## Overview
 
-The tsn toolchain consists of three tools:
+The **tsn toolchain** consists of three tools:
 
-| Tool | Purpose | Command |
-|------|---------|---------|
-| **tsn** | TypeScript to native compiler | `tsn main.ts` |
-| **tsnp** | Plugin configuration generator | `tsnp gen <crate>` |
-| **cargo-tsn** | Project manager | `cargo tsn new <name>` |
+| Tool | Purpose | Repository |
+|------|---------|------------|
+| **tsn** | TypeScript to native compiler | [tsn](https://github.com/itszzl-sudo/tsn) |
+| **tsnp** | Plugin configuration generator | [tsiot/tsnp](https://github.com/itszzl-sudo/tsiot) |
+| **cargo-tsn** | Project manager | [cargo-tsn](https://github.com/itszzl-sudo/cargo-tsn) |
+
+**Workflow:**
+```
+cargo-tsn (project manager)
+    ↓ creates/manages
+tsn project (TypeScript + Rust FFI)
+    ↓ compiles with
+tsn (compiler)
+    ↓ uses
+tsnp (plugins)
+```
+
+---
 
 ## Commands
 
-### cargo tsn new \<name\>
+### `cargo tsn new <name>`
 
 Create a new tsn project.
 
 ```bash
 cargo tsn new my-project
+cd my-project
 ```
 
 **Generated structure:**
-
 ```
 my-project/
 ├── Cargo.toml       # Rust project configuration
@@ -40,7 +60,6 @@ my-project/
 ```
 
 **Cargo.toml:**
-
 ```toml
 [package]
 name = "my-project"
@@ -54,7 +73,6 @@ crate-type = ["cdylib"]
 ```
 
 **src/lib.rs:**
-
 ```rust
 // Export FFI functions here
 // Example:
@@ -62,7 +80,9 @@ crate-type = ["cdylib"]
 // pub extern "C" fn my_func() -> i32 { 0 }
 ```
 
-### cargo tsn add \<crate\>
+---
+
+### `cargo tsn add <crate>`
 
 Add a Rust crate dependency and generate plugin configuration.
 
@@ -71,15 +91,13 @@ cargo tsn add regex
 ```
 
 **What it does:**
-
 1. Runs `cargo add <crate>` to download the dependency
-2. Fetches published tsnps from Codeberg and displays them with version and publish time
+2. Fetches published tsnps from Codeberg and displays them
 3. Prompts you to select an existing tsnp or create a new one
 4. Runs `tsnp gen <crate>` to generate plugin configuration
 5. Places output in `tsnp/<crate>/`
 
 **Interactive selection:**
-
 ```
 📦 Published tsnps available:
   [1] regex v0.2.1 (published: 2026-05-27)
@@ -91,7 +109,6 @@ Select an existing tsnp or create new:
 ```
 
 **Generated files:**
-
 ```
 tsnp/<crate>/
 ├── ts-native.toml    # Function mapping configuration
@@ -99,22 +116,9 @@ tsnp/<crate>/
 └── README.md         # Usage documentation
 ```
 
-**Success message:**
+---
 
-```
-✅ Added crate: regex
-📝 Next steps:
-   1. Edit tsnp/regex/ts-native.toml to configure function mappings
-   2. Implement FFI functions in src/lib.rs if needed
-   3. Run 'cargo tsn publish' to publish the plugin
-```
-
-**Note:** Most crates don't have FFI functions, so the generated configuration will be empty. Users need to:
-
-1. Write FFI wrapper functions in `src/lib.rs`
-2. Edit `tsnp/<crate>/ts-native.toml` to configure function mappings
-
-### cargo tsn func
+### `cargo tsn func`
 
 Interactively add FFI functions.
 
@@ -123,7 +127,6 @@ cargo tsn func
 ```
 
 **Interactive flow:**
-
 ```
 Current directory: .
 
@@ -142,52 +145,14 @@ Return type (e.g., 'i32'): i32
 ✅ Added to src/lib.rs
 ✅ Updated tsnp/regex/ts-native.toml
 
-Function name (or 'q'): multiply
-Parameters (e.g., 'a: i32, b: i32'): a: i32, b: i32
-Return type (e.g., 'i32'): i32
-
-✅ Added to src/lib.rs
-✅ Updated tsnp/regex/ts-native.toml
-
 Function name (or 'q'): q
 
-Select crate:
-[1] regex      (tsnp/regex/)
-[2] math       (tsnp/math/)
-[q] Quit
-Select: 2
-
-math selected.
-
-Function name (or 'q'): square
-Parameters (e.g., 'n: i32'): n: i32
-Return type (e.g., 'i32'): i32
-
-✅ Added to src/lib.rs
-✅ Updated tsnp/math/ts-native.toml
-
-Function name (or 'q'): q
-
-Select crate:
-[1] regex      (tsnp/regex/)
-[2] math       (tsnp/math/)
-[q] Quit
-Select: q
-
-Done. 3 FFI function(s) added.
+Done. 1 FFI function(s) added.
 ```
-
-**Interaction logic:**
-
-- Type function name, parameters, and return type
-- Type `q` to return to crate selection
-- Type `q` at crate selection to exit
-- Can switch between crates to add functions to multiple plugins
 
 **What gets generated:**
 
 1. **src/lib.rs** - FFI function stub:
-
 ```rust
 #[no_mangle]
 pub extern "C" fn add(a: i32, b: i32) -> i32 {
@@ -197,13 +162,14 @@ pub extern "C" fn add(a: i32, b: i32) -> i32 {
 ```
 
 2. **tsnp/\<crate\>/ts-native.toml** - Function mapping:
-
 ```toml
 [functions]
 "add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
 ```
 
-### cargo tsn publish
+---
+
+### `cargo tsn publish`
 
 Publish plugins to Codeberg repository.
 
@@ -212,17 +178,11 @@ cargo tsn publish
 ```
 
 **Dry-run mode:**
-
 ```bash
 cargo tsn publish --dry-run
 ```
 
-This will show what would be published without actually uploading anything.
-
 **Environment Variables:**
-
-Before using `publish`, you must set up authentication:
-
 ```bash
 # Required: Your Codeberg API token
 export CODEBERG_TOKEN="your-api-token-here"
@@ -235,13 +195,11 @@ export CODEBERG_AUTHOR="your-name"   # Default: tsnp
 ```
 
 **How to get a Codeberg API token:**
-
 1. Go to https://codeberg.org/user/settings/applications
 2. Generate a new token with `repo` permissions
 3. Set it as environment variable
 
 **Interactive flow:**
-
 ```
 Publishing plugins to codeberg.org
 Target: https://codeberg.org/tsnp/tsnp
@@ -262,27 +220,12 @@ Select: a
    Published: https://codeberg.org/tsnp/tsnp/releases/tag/regex-0.1.0
 ✅ Published regex successfully.
 
-[2/2] Publishing math...
-   Version: 0.1.0, Author: tsnp
-   Files: 3
-   Release already exists, updating...
-   Uploading math-0.1.0.zip...
-   Published: https://codeberg.org/tsnp/tsnp/releases/tag/math-0.1.0
-✅ Published math successfully.
-
-📊 Summary: 2 succeeded, 0 failed
+📊 Summary: 1 succeeded, 0 failed
 ```
 
-**Features:**
+---
 
-- ✅ Automatically checks if release already exists
-- ✅ Updates existing releases instead of failing
-- ✅ Progress indicators showing current plugin
-- ✅ Summary of successes and failures
-- ✅ Detailed error messages with API responses
-- ✅ Automatic cleanup of temporary files
-
-### cargo tsn list
+### `cargo tsn list`
 
 List local plugins in the current project.
 
@@ -291,16 +234,37 @@ cargo tsn list
 ```
 
 **Output:**
-
 ```
 Listing local plugins:
   - regex v0.1.0
   - math v0.1.0
 ```
 
-## Workflow
+---
 
-### Basic workflow
+### `cargo tsn install <name>`
+
+Install a published plugin from Codeberg.
+
+```bash
+cargo tsn install regex
+```
+
+**Install specific version:**
+```bash
+cargo tsn install regex --version 0.2.1
+```
+
+**What it does:**
+1. Fetches plugin from Codeberg releases
+2. Extracts to `tsnp/<name>/`
+3. Updates `Cargo.toml` with dependency
+
+---
+
+## Complete Workflow
+
+### Basic Example
 
 ```bash
 # 1. Create project
@@ -314,53 +278,47 @@ cargo tsn add regex
 cargo tsn func
 
 # 4. Implement FFI functions (edit src/lib.rs)
-
-# 5. Compile
-tsn main.ts
-
-# 6. Run
-./a.exe
-```
-
-### Complete example
-
-```bash
-# Create project
-cargo tsn new calculator
-cd calculator
-
-# Add dependency
-cargo tsn add math
-
-# Add FFI functions
-cargo tsn func
-
-# Select: 1 (math selected)
-# Function name: add
-# Parameters: a: i32, b: i32
-# Return type: i32
-# Function name: subtract
-# Parameters: a: i32, b: i32
-# Return type: i32
-# Function name: q
-# Select: q
-
-# Edit src/lib.rs to implement functions:
+# Example:
 # #[no_mangle]
 # pub extern "C" fn add(a: i32, b: i32) -> i32 {
 #     a + b
 # }
 
-# Edit main.ts:
+# 5. Edit main.ts
 # function main() {
 #     print(add(1, 2));
 #     return 0;
 # }
 
-# Compile and run
+# 6. Compile
 tsn main.ts
+
+# 7. Run
 ./a.exe  # Output: 3
 ```
+
+---
+
+### Publishing Example
+
+```bash
+# 1. Create and develop plugin
+cargo tsn new my-plugin
+cd my-plugin
+cargo tsn add some-crate
+cargo tsn func
+
+# 2. Set up Codeberg token
+export CODEBERG_TOKEN="your-token"
+
+# 3. Publish
+cargo tsn publish
+
+# 4. Others can now install
+cargo tsn install my-plugin
+```
+
+---
 
 ## Type Mapping
 
@@ -374,6 +332,8 @@ When using `cargo tsn func`, Rust types are automatically mapped to TypeScript t
 | &str | string |
 | *const T, *mut T | number (pointer) |
 | () | void |
+
+---
 
 ## Project Structure
 
@@ -399,6 +359,8 @@ my-project/
 └── a.exe                # Native executable
 ```
 
+---
+
 ## ts-native.toml Format
 
 ```toml
@@ -418,6 +380,8 @@ lib = "regex"
 **Version Fields:**
 - `version` - The original Rust crate version
 - `tsnpVersion` - The tsnp plugin version (independent versioning)
+
+---
 
 ## Notes
 
@@ -445,7 +409,6 @@ pub extern "C" fn my_wrapper(arg: i32) -> i32 {
 ```
 
 Then run:
-
 ```bash
 cargo tsn func
 # Add the wrapper function to ts-native.toml
@@ -455,7 +418,7 @@ cargo tsn func
 
 `cargo tsn func` must be run from the project root (where `tsnp/` directory exists).
 
-```
+```bash
 cd my-project
 cargo tsn func  # ✅ Correct
 
@@ -463,10 +426,22 @@ cd my-project/src
 cargo tsn func  # ❌ Error: tsnp/ not found
 ```
 
+---
+
 ## Related Tools
 
-- **tsn** - TypeScript native compiler: `cargo install tsn`
-- **tsnp** - Plugin generator: `cargo install tsnp`
+- **tsn** - TypeScript native compiler: [GitHub](https://github.com/itszzl-sudo/tsn)
+- **tsiot** - Complete IoT project (docs + tsnp): [GitHub](https://github.com/itszzl-sudo/tsiot)
+- **tsnp** - Plugin generator (in tsiot): [GitHub](https://github.com/itszzl-sudo/tsiot/tree/main/tsnp)
+
+---
+
+## Repository
+
+- **GitHub**: https://github.com/itszzl-sudo/cargo-tsn
+- **Issues**: https://github.com/itszzl-sudo/cargo-tsn/issues
+
+---
 
 ## License
 
