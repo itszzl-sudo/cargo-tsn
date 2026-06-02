@@ -67,30 +67,6 @@ fn get_codeberg_base_url() -> String {
     get_codeberg_api().replace("/api/v1", "")
 }
 
-pub fn cmd_list() {
-    println!("Listing local plugins:");
-    
-    let tsnp_dir = Path::new("tsnp");
-    if !tsnp_dir.exists() {
-        println!("No tsnp/ directory found.");
-        return;
-    }
-    
-    for entry in fs::read_dir(tsnp_dir).unwrap().filter_map(|e| e.ok()) {
-        if entry.path().is_dir() {
-            if let Some(name) = entry.file_name().to_str() {
-                let toml_path = entry.path().join("ts-native.toml");
-                if toml_path.exists() {
-                    if let Ok(version) = extract_version_from_toml(&toml_path) {
-                        println!("  - {} v{}", name, version);
-                    } else {
-                        println!("  - {} (error reading toml)", name);
-                    }
-                }
-            }
-        }
-    }
-}
 
 fn extract_version_from_toml(path: &Path) -> Result<String> {
     let content = fs::read_to_string(path)?;
@@ -106,10 +82,35 @@ fn extract_version_from_str(content: &str) -> String {
         .unwrap_or_else(|| "0.1.0".to_string())
 }
 
-pub fn cmd_publish(dry_run: bool) {
-    if let Err(e) = cmd_publish_inner(dry_run) {
-        eprintln!("Failed to publish: {:#}", e);
+pub fn cmd_publish(dry_run: bool) -> Result<()> {
+    cmd_publish_inner(dry_run)
+}
+
+pub fn cmd_list() -> Result<()> {
+    println!("Listing local plugins:");
+    
+    let tsnp_dir = Path::new("tsnp");
+    if !tsnp_dir.exists() {
+        println!("No tsnp/ directory found.");
+        return Ok(());
     }
+    
+    for entry in fs::read_dir(tsnp_dir).context("Failed to read tsnp directory")?.filter_map(|e| e.ok()) {
+        if entry.path().is_dir() {
+            if let Some(name) = entry.file_name().to_str() {
+                let toml_path = entry.path().join("ts-native.toml");
+                if toml_path.exists() {
+                    if let Ok(version) = extract_version_from_toml(&toml_path) {
+                        println!("  - {} v{}", name, version);
+                    } else {
+                        println!("  - {} (error reading toml)", name);
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(())
 }
 
 fn cmd_publish_inner(dry_run: bool) -> Result<()> {

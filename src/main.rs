@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{self, Write};
 use std::process::Command;
+use anyhow::{Context, Result};
 
 mod publish;
 
@@ -40,7 +41,7 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
     
     match cli.command {
@@ -53,12 +54,12 @@ fn main() {
     }
 }
 
-fn cmd_new(name: &str) {
+fn cmd_new(name: &str) -> Result<()> {
     println!("Creating tsn project: {}", name);
     
-    fs::create_dir_all(name).expect("Failed to create directory");
-    fs::create_dir_all(format!("{}/src", name)).expect("Failed to create src");
-    fs::create_dir_all(format!("{}/tsnp", name)).expect("Failed to create tsnp");
+    fs::create_dir_all(name).context("Failed to create directory")?;
+    fs::create_dir_all(format!("{}/src", name)).context("Failed to create src")?;
+    fs::create_dir_all(format!("{}/tsnp", name)).context("Failed to create tsnp")?;
     
     let cargo_toml = format!(r#"[package]
 name = "{}"
@@ -70,27 +71,29 @@ crate-type = ["cdylib"]
 
 [dependencies]
 "#, name);
-    fs::write(format!("{}/Cargo.toml", name), cargo_toml).expect("Failed to write Cargo.toml");
+    fs::write(format!("{}/Cargo.toml", name), cargo_toml).context("Failed to write Cargo.toml")?;
     
     let lib_rs = r#"// Export FFI functions here
 // Example:
 // #[no_mangle]
 // pub extern "C" fn my_func() -> i32 { 0 }
 "#;
-    fs::write(format!("{}/src/lib.rs", name), lib_rs).expect("Failed to write lib.rs");
+    fs::write(format!("{}/src/lib.rs", name), lib_rs).context("Failed to write lib.rs")?;
     
     let main_ts = r#"function main() {
     print("Hello, tsn!");
     return 0;
 }
 "#;
-    fs::write(format!("{}/main.ts", name), main_ts).expect("Failed to write main.ts");
+    fs::write(format!("{}/main.ts", name), main_ts).context("Failed to write main.ts")?;
     
     println!("✅ Created: {}", name);
     println!("   cd {} && tsn main.ts", name);
+    
+    Ok(())
 }
 
-fn cmd_add(crate_name: &str) {
+fn cmd_add(crate_name: &str) -> Result<()> {
     println!("Adding crate: {}", crate_name);
     
     // 1. cargo add
@@ -98,11 +101,10 @@ fn cmd_add(crate_name: &str) {
     let status = Command::new("cargo")
         .args(["add", crate_name])
         .status()
-        .expect("Failed to run cargo add");
+        .context("Failed to run cargo add")?;
     
     if !status.success() {
-        eprintln!("❌ cargo add failed");
-        return;
+        anyhow::bail!("cargo add failed");
     }
     
     // 2. Check if tsnp/ directory exists and list existing tsnps
@@ -122,15 +124,15 @@ fn cmd_add(crate_name: &str) {
                 println!("[q] Cancel");
                 
                 print!("\nSelect an existing tsnp or create new: ");
-                io::stdout().flush().expect("Failed to flush");
+                io::stdout().flush().context("Failed to flush")?;
                 
                 let mut input = String::new();
-                io::stdin().read_line(&mut input).expect("Failed to read input");
+                io::stdin().read_line(&mut input).context("Failed to read input")?;
                 let input = input.trim();
                 
                 if input == "q" {
                     println!("Cancelled.");
-                    return;
+                    return Ok(());
                 } else if input == "n" {
                     use_existing = false;
                 } else if let Ok(idx) = input.parse::<usize>() {
@@ -162,7 +164,7 @@ fn cmd_add(crate_name: &str) {
             let status = Command::new("tsnp")
                 .args(["gen", crate_name])
                 .status()
-                .expect("Failed to run tsnp gen");
+                .context("Failed to run tsnp gen")?;
             if !status.success() {
                 eprintln!("tsnp gen failed (crate may have no FFI functions)");
             }
@@ -174,7 +176,7 @@ fn cmd_add(crate_name: &str) {
         let status = Command::new("tsnp")
             .args(["gen", crate_name])
             .status()
-            .expect("Failed to run tsnp gen");
+            .context("Failed to run tsnp gen")?;
         
         if !status.success() {
             eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
@@ -186,16 +188,17 @@ fn cmd_add(crate_name: &str) {
     println!("   1. Edit tsnp/{}/ts-native.toml to configure function mappings", crate_name);
     println!("   2. Implement FFI functions in src/lib.rs if needed");
     println!("   3. Run 'cargo tsn publish' to publish the plugin");
+    
+    Ok(())
 }
 
-fn cmd_func() {
+fn cmd_func() -> Result<()> {
     println!("Current directory: .");
     
     // 检查 tsnp 目录
     let tsnp_dir = std::path::Path::new("tsnp");
     if !tsnp_dir.exists() {
-        eprintln!("❌ tsnp/ directory not found. Run this command in a tsn project root.");
-        return;
+        anyhow::bail!("tsnp/ directory not found. Run this command in a tsn project root.");
     }
     
     let mut total_count = 0;
@@ -203,15 +206,14 @@ fn cmd_func() {
     loop {
         // 列出 tsnp 下的子目录
         let crates: Vec<String> = fs::read_dir(tsnp_dir)
-            .expect("Failed to read tsnp directory")
+            .context("Failed to read tsnp directory")?
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.path().is_dir())
             .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
             .collect();
         
         if crates.is_empty() {
-            eprintln!("❌ No crates found in tsnp/. Run 'cargo tsn add <crate>' first.");
-            return;
+            anyhow::bail!("No crates found in tsnp/. Run 'cargo tsn add <crate>' first.");
         }
         
         // 选择 crate
@@ -222,10 +224,10 @@ fn cmd_func() {
         println!("[q] Quit");
         
         print!("\nSelect: ");
-        io::stdout().flush().expect("Failed to flush");
+        io::stdout().flush().context("Failed to flush")?;
         
         let mut input = String::new();
-        io::stdin().read_line(&mut input).expect("Failed to read input");
+        io::stdin().read_line(&mut input).context("Failed to read input")?;
         let input = input.trim();
         
         if input == "q" {
@@ -246,10 +248,10 @@ fn cmd_func() {
         // 函数添加循环
         loop {
             print!("\nFunction name (or 'q'): ");
-            io::stdout().flush().expect("Failed to flush");
+            io::stdout().flush().context("Failed to flush")?;
             
             let mut func_name = String::new();
-            io::stdin().read_line(&mut func_name).expect("Failed to read input");
+            io::stdin().read_line(&mut func_name).context("Failed to read input")?;
             let func_name = func_name.trim();
             
             if func_name == "q" || func_name.is_empty() {
@@ -258,22 +260,22 @@ fn cmd_func() {
             
             // 输入参数
             print!("Parameters (e.g., 'a: i32, b: i32'): ");
-            io::stdout().flush().expect("Failed to flush");
+            io::stdout().flush().context("Failed to flush")?;
             
             let mut params = String::new();
-            io::stdin().read_line(&mut params).expect("Failed to read input");
+            io::stdin().read_line(&mut params).context("Failed to read input")?;
             let params = params.trim();
             
             // 输入返回值
             print!("Return type (e.g., 'i32'): ");
-            io::stdout().flush().expect("Failed to flush");
+            io::stdout().flush().context("Failed to flush")?;
             
             let mut ret_type = String::new();
-            io::stdin().read_line(&mut ret_type).expect("Failed to read input");
+            io::stdin().read_line(&mut ret_type).context("Failed to read input")?;
             let ret_type = ret_type.trim();
             
             // 生成 FFI 函数
-            add_ffi_function(selected_crate, func_name, params, ret_type);
+            add_ffi_function(selected_crate, func_name, params, ret_type)?;
             total_count += 1;
             
             println!("✅ Added to src/lib.rs");
@@ -282,9 +284,16 @@ fn cmd_func() {
     }
     
     println!("\nDone. {} FFI function(s) added.", total_count);
+    
+    Ok(())
 }
 
-fn add_ffi_function(crate_name: &str, func_name: &str, params: &str, ret_type: &str) {
+fn add_ffi_function(crate_name: &str, func_name: &str, params: &str, ret_type: &str) -> Result<()> {
+    // 验证函数名合法性
+    if !func_name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        anyhow::bail!("Invalid function name: {}", func_name);
+    }
+    
     // 生成 Rust FFI 代码
     let ffi_code = if ret_type.is_empty() || ret_type == "void" {
         format!(
@@ -313,7 +322,7 @@ pub extern "C" fn {}({}) -> {} {{
     let lib_rs_path = "src/lib.rs";
     if let Ok(mut content) = fs::read_to_string(lib_rs_path) {
         content.push_str(&ffi_code);
-        fs::write(lib_rs_path, content).expect("Failed to write lib.rs");
+        fs::write(lib_rs_path, content).context("Failed to write lib.rs")?;
     }
     
     // 更新 ts-native.toml
@@ -336,9 +345,11 @@ pub extern "C" fn {}({}) -> {} {{
         if let Some(pos) = content.find("[functions]\n") {
             let insert_pos = pos + "[functions]\n".len();
             content.insert_str(insert_pos, &func_entry);
-            fs::write(&toml_path, content).expect("Failed to write toml");
+            fs::write(&toml_path, content).context("Failed to write toml")?;
         }
     }
+    
+    Ok(())
 }
 
 fn infer_ts_params(params: &str) -> Vec<String> {
@@ -386,16 +397,15 @@ fn infer_ts_type(rust_type: &str) -> String {
     "number".to_string()
 }
 
-fn cmd_publish(dry_run: bool) {
-    publish::cmd_publish(dry_run);
+fn cmd_publish(dry_run: bool) -> Result<()> {
+    publish::cmd_publish(dry_run)
 }
 
-fn cmd_list() {
+fn cmd_list() -> Result<()> {
     publish::cmd_list();
+    Ok(())
 }
 
-fn cmd_install(name: &str, version: Option<&str>) {
-    if let Err(e) = publish::download_tsnp(name, version) {
-        eprintln!("Failed to install: {:#}", e);
-    }
+fn cmd_install(name: &str, version: Option<&str>) -> Result<()> {
+    publish::download_tsnp(name, version)
 }
