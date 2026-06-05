@@ -196,6 +196,37 @@ fn cmd_add(crate_name: &str) -> Result<()> {
         
         if !status.success() {
             eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
+        } else {
+            // 设置默认优先级为 1000
+            let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
+            if let Ok(mut content) = fs::read_to_string(&toml_path) {
+                // 替换或添加 priority 字段
+                if content.contains("priority =") {
+                    // 替换现有 priority
+                    content = content
+                        .lines()
+                        .map(|line| {
+                            if line.trim().starts_with("priority =") {
+                                "priority = 1000".to_string()
+                            } else {
+                                line.to_string()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                } else {
+                    // 在 [package] 下添加
+                    if let Some(pos) = content.find("[package]\n") {
+                        let insert_pos = pos + "[package]\n".len();
+                        // 找到下一个段或文件结尾
+                        let next_section = content[insert_pos..].find('\n')
+                            .map(|p| insert_pos + p)
+                            .unwrap_or(content.len());
+                        content.insert_str(next_section, "\npriority = 1000");
+                    }
+                }
+                let _ = fs::write(&toml_path, content);
+            }
         }
     }
     
@@ -344,6 +375,29 @@ pub extern "C" fn {}({}) -> {} {{
     // 更新 ts-native.toml
     let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
     if let Ok(mut content) = fs::read_to_string(&toml_path) {
+        // 确保优先级为 1000
+        if content.contains("priority =") {
+            content = content
+                .lines()
+                .map(|line| {
+                    if line.trim().starts_with("priority =") {
+                        "priority = 1000".to_string()
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+        } else {
+            if let Some(pos) = content.find("[package]\n") {
+                let insert_pos = pos + "[package]\n".len();
+                let next_section = content[insert_pos..].find('\n')
+                    .map(|p| insert_pos + p)
+                    .unwrap_or(content.len());
+                content.insert_str(next_section, "\npriority = 1000");
+            }
+        }
+        
         // 推断 TypeScript 类型
         let ts_params = infer_ts_params(params);
         let ts_ret = infer_ts_type(ret_type);
