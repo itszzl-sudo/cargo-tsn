@@ -63,8 +63,8 @@ fn main() -> Result<()> {
         // Commands::Install { name, version } => cmd_install(&name, version.as_deref()),  // DISABLED
         Commands::Prepare { input, output, dry_run } => {
             let input_ref = input.as_deref();
-            // 无参时默认输出到 ./prepared 目录
-            let output_dir = output.as_deref().unwrap_or("prepared");
+            // 无参时默认输出到 ./prepare 目录
+            let output_dir = output.as_deref().unwrap_or("prepare");
             prepare::cmd_prepare(input_ref, output_dir, dry_run)
         }
     }

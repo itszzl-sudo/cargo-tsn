@@ -16,8 +16,9 @@ cd my-project
 # 然后生成 FFI 插件骨架
 cargo tsn prepare
 
-# 拷贝到 tsnp 目录
-cp -r prepared/tsnp/* tsnp/
+# 在 prepare/ 中编辑、选择需要的插件
+cp -r prepare/tsnp/crypto tsnp/        # 只拷贝需要的
+cp -r prepare/tsnp/http tsnp/          # 选择性拷贝
 
 # 编译运行
 ts-native main.ts
@@ -74,7 +75,7 @@ function main(): number {
 cargo tsn prepare
 ```
 
-**输出到 `prepared/` 目录**：
+**输出到 `prepare/` 目录**：
 ```
 📦 Analyzing TypeScript files...
   ✓ Found: main.ts
@@ -88,9 +89,9 @@ cargo tsn prepare
 ⚙️  Generating plugins...
 
 crypto ████████████████████████████████ 4/4
-  ✓ prepared/tsnp/crypto/crypto_win.c
-  ✓ prepared/tsnp/crypto/ts-native.toml
-  ✓ prepared/tsnp/crypto/ts-native-win.toml
+  ✓ prepare/tsnp/crypto/crypto_win.c
+  ✓ prepare/tsnp/crypto/ts-native.toml
+  ✓ prepare/tsnp/crypto/ts-native-win.toml
 
 ✅ Prepared 3 plugin(s) with 3 function(s)
 ```
@@ -102,7 +103,7 @@ cargo tsn prepare --dry-run
 
 **生成的文件结构**：
 ```
-prepared/tsnp/
+prepare/tsnp/
 ├── crypto/
 │   ├── crypto_win.c           ← Windows C 模板（注释形式）
 │   ├── crypto_linux.c         ← Linux 模板
@@ -120,11 +121,12 @@ prepared/tsnp/
 
 **工作流**：
 ```
-1. cargo tsn prepare                # 生成到 prepared/tsnp/
+1. cargo tsn prepare                # 生成到 prepare/tsnp/
    ↓
-2. 检查生成的内容
+2. 在 prepare/tsnp/ 中编辑、选择
    ↓
-3. cp -r prepared/tsnp/* tsnp/     # 手动拷贝到 tsnp/
+3. cp -r prepare/tsnp/crypto tsnp/  # 只拷贝需要的插件
+   cp -r prepare/tsnp/http tsnp/    # 选择性拷贝
    ↓
 4. 实现 C 函数
    ↓
@@ -285,13 +287,13 @@ cargo tsn prepare [OPTIONS]
 
 Options:
   --input <FILE>         指定输入文件（默认：自动扫描 *.ts）
-  --output <DIR>         输出目录（默认：./prepared）
+  --output <DIR>         输出目录（默认：./prepare）
   --dry-run              预览模式（不生成文件）
 ```
 
 **示例**：
 ```bash
-# 生成到默认目录 (./prepared)
+# 生成到默认目录 (./prepare)
 cargo tsn prepare
 
 # 指定输入文件
@@ -311,11 +313,12 @@ cargo tsn prepare --dry-run
 ```
 1. 编写 TypeScript 代码（包含 declare function）
    ↓
-2. cargo tsn prepare（生成插件骨架到 prepared/）
+2. cargo tsn prepare（生成插件骨架到 prepare/）
    ↓
-3. 检查生成的内容
+3. 在 prepare/tsnp/ 中编辑、选择需要的插件
    ↓
-4. 拷贝到 tsnp/ 目录
+4. cp -r prepare/tsnp/crypto tsnp/     # 只拷贝需要的
+   cp -r prepare/tsnp/http tsnp/      # 选择性拷贝
    ↓
 5. 手动实现 C 函数
    ↓
