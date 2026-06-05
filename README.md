@@ -141,8 +141,25 @@ cargo tsn add serde_json
 
 自动：
 - 添加 Rust crate 依赖
-- 生成插件配置（priority = 1000）
-- 扫描 crate 的 FFI 函数
+- 提示用户编写 TypeScript FFI 声明
+- 引导用户使用 `cargo tsn prepare` 生成插件
+
+**工作流**：
+```bash
+# 1. 添加 crate
+cargo tsn add crypto
+
+# 2. 在 TypeScript 中写 FFI 声明
+declare function crypto_sha256(data: string): string;
+
+# 3. 生成插件骨架
+cargo tsn prepare
+
+# 4. 拷贝到项目
+cp -r prepare/tsnp/crypto tsnp/
+```
+
+> **注意**：旧版 `tsnp gen` 命令已废弃，请使用 `cargo tsn prepare` 代替。
 
 ### 4. `cargo tsn func` - 交互式添加 FFI 函数
 

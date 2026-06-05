@@ -148,33 +148,13 @@ fn cmd_add(crate_name: &str) -> Result<()> {
         anyhow::bail!("cargo add failed");
     }
     
-    // 2. Check if tsnp/ directory exists
-    let tsnp_dir = std::path::Path::new("tsnp");
-    
-    if tsnp_dir.exists() {
-        println!("\n📝 Tip: Use 'cargo tsn prepare' to generate plugins from TypeScript source");
-    }
-    
-    // 3. Generate tsnp configuration
-    println!("\nGenerating new tsnp for: {}", crate_name);
-    println!("Running: tsnp gen {}", crate_name);
-    let status = Command::new("tsnp")
-        .args(["gen", crate_name])
-        .status()
-        .context("Failed to run tsnp gen")?;
-    
-    if !status.success() {
-        eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
-    } else {
-        // 设置默认优先级为 1000
-        let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
-        ensure_priority_1000(&toml_path)?;
-    }
-    
     println!("\n✅ Added crate: {}", crate_name);
-    println!("📝 Next steps:");
-    println!("   1. Edit tsnp/{}/ts-native.toml to configure function mappings", crate_name);
-    println!("   2. Implement FFI functions in src/lib.rs if needed");
+    println!("\n📝 Next steps:");
+    println!("   1. Add FFI declarations in your TypeScript code:");
+    println!("      declare function {}_func(data: string): string;", crate_name.replace("-", "_"));
+    println!("   2. Run 'cargo tsn prepare' to generate plugin scaffold");
+    println!("   3. Implement C functions in prepare/tsnp/{}/", crate_name);
+    println!("   4. Copy to tsnp/ directory: cp -r prepare/tsnp/{} tsnp/", crate_name);
     
     Ok(())
 }
