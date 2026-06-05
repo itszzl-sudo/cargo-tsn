@@ -190,14 +190,6 @@ cargo tsn list
 - 显示版本号和优先级
 - 自动搜索 tsnp-contrib 目录
 
-### 6. ~~`cargo tsn publish`~~ - 已禁用
-
-**DISABLED**: 该功能已禁用，因为目前缺乏社区贡献和合适的存储方案。
-
-### 7. ~~`cargo tsn install`~~ - 已禁用
-
-**DISABLED**: 该功能已禁用，因为目前缺乏社区贡献和合适的存储方案。
-
 ## C 文件模板说明
 
 `cargo tsn prepare` 生成的 C 文件包含**注释形式的函数模板**，而非桩实现：

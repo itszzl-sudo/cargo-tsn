@@ -4,7 +4,6 @@ use std::io::{self, Write};
 use std::process::Command;
 use anyhow::{Context, Result};
 
-mod publish;
 mod prepare;
 
 #[derive(Parser)]
@@ -27,19 +26,8 @@ enum Commands {
     },
     #[command(about = "Interactively add FFI function to existing plugin")]
     Func,
-    // #[command(about = "Publish plugins to codeberg (DISABLED)")]
-    // Publish {
-    //     #[arg(long, help = "Show what would be published without actually publishing")]
-    //     dry_run: bool,
-    // },
     #[command(about = "List local plugins")]
     List,
-    // #[command(about = "Install a published plugin from Codeberg (DISABLED)")]
-    // Install {
-    //     name: String,
-    //     #[arg(long, help = "Specific version to install")]
-    //     version: Option<String>,
-    // },
     #[command(about = "Generate C stubs from TypeScript FFI declarations")]
     Prepare {
         #[arg(long, help = "Input TypeScript file(s)")]
@@ -58,9 +46,7 @@ fn main() -> Result<()> {
         Commands::New { name } => cmd_new(&name),
         Commands::Add { crate_name } => cmd_add(&crate_name),
         Commands::Func => cmd_func(),
-        // Commands::Publish { dry_run } => cmd_publish(dry_run),  // DISABLED
         Commands::List => cmd_list(),
-        // Commands::Install { name, version } => cmd_install(&name, version.as_deref()),  // DISABLED
         Commands::Prepare { input, output, dry_run } => {
             let input_ref = input.as_deref();
             // 无参时默认输出到 ./prepare 目录
@@ -123,110 +109,54 @@ fn cmd_add(crate_name: &str) -> Result<()> {
         anyhow::bail!("cargo add failed");
     }
     
-    // 2. Check if tsnp/ directory exists and list existing tsnps
+    // 2. Check if tsnp/ directory exists
     let tsnp_dir = std::path::Path::new("tsnp");
-    let mut use_existing = false;
-    let mut existing_tsnp_name = String::new();
     
     if tsnp_dir.exists() {
-
-        match publish::fetch_published_tsnps() {
-            Ok(tsnps) if !tsnps.is_empty() => {
-                println!("\n📦 Published tsnps available:");
-                for (i, (name, version, time)) in tsnps.iter().enumerate() {
-                    println!("  [{}] {} v{} (published: {})", i + 1, name, version, time);
-                }
-                println!("  [n] Create new tsnp for {}", crate_name);
-                println!("[q] Cancel");
-                
-                print!("\nSelect an existing tsnp or create new: ");
-                io::stdout().flush().context("Failed to flush")?;
-                
-                let mut input = String::new();
-                io::stdin().read_line(&mut input).context("Failed to read input")?;
-                let input = input.trim();
-                
-                if input == "q" {
-                    println!("Cancelled.");
-                    return Ok(());
-                } else if input == "n" {
-                    use_existing = false;
-                } else if let Ok(idx) = input.parse::<usize>() {
-                    if idx >= 1 && idx <= tsnps.len() {
-                        use_existing = true;
-                        existing_tsnp_name = tsnps[idx - 1].0.clone();
-                    } else {
-                        eprintln!("Invalid selection. Creating new tsnp.");
-                        use_existing = false;
-                    }
-                } else {
-                    eprintln!("Invalid input. Creating new tsnp.");
-                    use_existing = false;
-                }
-            }
-            _ => {
-                // No published tsnps or error, proceed with new
-                use_existing = false;
-            }
-        }
+        println!("\n📝 Tip: Use 'cargo tsn prepare' to generate plugins from TypeScript source");
     }
     
     // 3. Generate tsnp configuration
-    if use_existing {
-        println!("\nUsing existing tsnp: {}", existing_tsnp_name);
-        if let Err(e) = publish::download_tsnp(&existing_tsnp_name, None) {
-            eprintln!("Failed to download tsnp: {:#}", e);
-            eprintln!("Falling back to tsnp gen...");
-            let status = Command::new("tsnp")
-                .args(["gen", crate_name])
-                .status()
-                .context("Failed to run tsnp gen")?;
-            if !status.success() {
-                eprintln!("tsnp gen failed (crate may have no FFI functions)");
-            }
-        }
+    println!("\nGenerating new tsnp for: {}", crate_name);
+    println!("Running: tsnp gen {}", crate_name);
+    let status = Command::new("tsnp")
+        .args(["gen", crate_name])
+        .status()
+        .context("Failed to run tsnp gen")?;
+    
+    if !status.success() {
+        eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
     } else {
-        // Generate new tsnp
-        println!("\nGenerating new tsnp for: {}", crate_name);
-        println!("Running: tsnp gen {}", crate_name);
-        let status = Command::new("tsnp")
-            .args(["gen", crate_name])
-            .status()
-            .context("Failed to run tsnp gen")?;
-        
-        if !status.success() {
-            eprintln!("⚠️  tsnp gen failed (crate may have no FFI functions)");
-        } else {
-            // 设置默认优先级为 1000
-            let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
-            if let Ok(mut content) = fs::read_to_string(&toml_path) {
-                // 替换或添加 priority 字段
-                if content.contains("priority =") {
-                    // 替换现有 priority
-                    content = content
-                        .lines()
-                        .map(|line| {
-                            if line.trim().starts_with("priority =") {
-                                "priority = 1000".to_string()
-                            } else {
-                                line.to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                } else {
-                    // 在 [package] 下添加
-                    if let Some(pos) = content.find("[package]\n") {
-                        let insert_pos = pos + "[package]\n".len();
-                        // 找到下一个段或文件结尾
-                        let next_section = content[insert_pos..].find('\n')
-                            .map(|p| insert_pos + p)
-                            .unwrap_or(content.len());
-                        content.insert_str(next_section, "\npriority = 1000");
-                    }
+        // 设置默认优先级为 1000
+        let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
+        if let Ok(mut content) = fs::read_to_string(&toml_path) {
+            // 替换或添加 priority 字段
+            if content.contains("priority =") {
+                // 替换现有 priority
+                content = content
+                    .lines()
+                    .map(|line| {
+                        if line.trim().starts_with("priority =") {
+                            "priority = 1000".to_string()
+                        } else {
+                            line.to_string()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+            } else {
+                // 在 [package] 下添加
+                if let Some(pos) = content.find("[package]\n") {
+                    let insert_pos = pos + "[package]\n".len();
+                    // 找到下一个段或文件结尾
+                    let next_section = content[insert_pos..].find('\n')
+                        .map(|p| insert_pos + p)
+                        .unwrap_or(content.len());
+                    content.insert_str(next_section, "\npriority = 1000");
                 }
-                let _ = fs::write(&toml_path, content);
             }
+            fs::write(&toml_path, content)
+                .context("Failed to update priority")?;
         }
     }
     
@@ -234,7 +164,6 @@ fn cmd_add(crate_name: &str) -> Result<()> {
     println!("📝 Next steps:");
     println!("   1. Edit tsnp/{}/ts-native.toml to configure function mappings", crate_name);
     println!("   2. Implement FFI functions in src/lib.rs if needed");
-    println!("   3. Run 'cargo tsn publish' to publish the plugin");
     
     Ok(())
 }
@@ -467,14 +396,95 @@ fn infer_ts_type(rust_type: &str) -> String {
     "number".to_string()
 }
 
-fn cmd_publish(dry_run: bool) -> Result<()> {
-    publish::cmd_publish(dry_run)
-}
-
 fn cmd_list() -> Result<()> {
-    publish::cmd_list()
-}
-
-fn cmd_install(name: &str, version: Option<&str>) -> Result<()> {
-    publish::download_tsnp(name, version)
+    use std::path::Path;
+    
+    // 1. 显示开发者自定义插件（tsnp/）
+    println!("📦 Developer Plugins (tsnp/):");
+    
+    let tsnp_dir = Path::new("tsnp");
+    if tsnp_dir.exists() {
+        let mut found = false;
+        for entry in fs::read_dir(tsnp_dir).context("Failed to read tsnp directory")?.filter_map(|e| e.ok()) {
+            if entry.path().is_dir() {
+                if let Some(name) = entry.file_name().to_str() {
+                    let toml_path = entry.path().join("ts-native.toml");
+                    if toml_path.exists() {
+                        if let Ok(content) = fs::read_to_string(&toml_path) {
+                            if let Ok(toml_val) = content.parse::<toml::Value>() {
+                                let version = toml_val.get("package")
+                                    .and_then(|p| p.get("version"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown");
+                                let priority = toml_val.get("package")
+                                    .and_then(|p| p.get("priority"))
+                                    .and_then(|p| p.as_float())
+                                    .unwrap_or(1000.0);
+                                println!("  - {} v{} (priority: {})", name, version, priority);
+                                found = true;
+                            } else {
+                                println!("  - {} (error parsing toml)", name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if !found {
+            println!("  (no plugins found)");
+        }
+    } else {
+        println!("  (no tsnp/ directory)");
+    }
+    
+    // 2. 显示官方插件（tsnp-contrib/）
+    println!("\n🏛️  Official Plugins (tsnp-contrib/):");
+    
+    // 查找 tsnp-contrib 目录（可能在当前目录或上级目录）
+    let contrib_dirs = vec![
+        Path::new("tsnp-contrib").to_path_buf(),
+        Path::new("../tsnp-contrib").to_path_buf(),
+        Path::new("../ts-native/tsnp-contrib").to_path_buf(),
+    ];
+    
+    let mut contrib_dir_found = false;
+    for contrib_dir in &contrib_dirs {
+        if contrib_dir.exists() {
+            let mut found = false;
+            for entry in fs::read_dir(contrib_dir).context("Failed to read tsnp-contrib directory")?.filter_map(|e| e.ok()) {
+                if entry.path().is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        let toml_path = entry.path().join("ts-native.toml");
+                        if toml_path.exists() {
+                            if let Ok(content) = fs::read_to_string(&toml_path) {
+                                if let Ok(toml_val) = content.parse::<toml::Value>() {
+                                    let version = toml_val.get("package")
+                                        .and_then(|p| p.get("version"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("unknown");
+                                    let priority = toml_val.get("package")
+                                        .and_then(|p| p.get("priority"))
+                                        .and_then(|p| p.as_float())
+                                        .unwrap_or(0.0);
+                                    println!("  - {} v{} (priority: {})", name, version, priority);
+                                    found = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !found {
+                println!("  (no plugins found)");
+            }
+            contrib_dir_found = true;
+            break;
+        }
+    }
+    
+    if !contrib_dir_found {
+        println!("  (tsnp-contrib/ not found)");
+    }
+    
+    Ok(())
 }
