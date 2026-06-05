@@ -1,319 +1,295 @@
-# ts-native
+# cargo-tsn
 
-TypeScript to native executable compiler.
+**ts-native 项目管理工具** - 从 TypeScript 源码自动生成 FFI 插件骨架
 
-## Quick Start
+## 快速开始
 
 ```bash
-# Install
-cargo install ts-native
+# 安装
+cargo install cargo-tsn
 
-# Compile and run (output: main.exe in same directory as main.ts)
+# 创建新项目
+cargo tsn new my-project
+cd my-project
+
+# 从 TypeScript 源码生成 FFI 插件
+cargo tsn prepare
+
+# 编译运行
 ts-native main.ts
 ./main.exe
 ```
 
-## What is ts-native
+## 什么是 cargo-tsn
 
-A compiler that converts TypeScript to native executable (8-23KB), no Node.js required.
+`cargo-tsn` 是 ts-native 编译器的项目管理工具，提供：
 
-Also published as **`tsn`** (`cargo install tsn`) — same compiler, shorter name.
+- **项目脚手架**：快速创建 ts-native 项目
+- **FFI 插件生成**：从 TypeScript 声明自动生成 C 插件骨架
+- **依赖管理**：管理插件依赖关系
+- **发布工具**：发布和安装插件
 
-## Key Features
+## 核心功能
 
-- **Tiny executables**: 8-23KB native binaries
-- **No runtime**: Zero dependencies, no Node.js
-- **FFI integration**: Call C/Rust functions directly
-- **NaN-boxing**: Efficient value representation
-- **Syntax pre-check**: swc-based AST analysis detects unsupported syntax before compilation
-- **Standalone**: No project management tools required
-
-## Architecture
-
-```
-TypeScript source
-      ↓
-  Syntax Check (swc)
-      ↓
-    Lexer
-      ↓
-    Parser
-      ↓
-     HIR (High-level IR)
-      ↓
-    Codegen (Cranelift)
-      ↓
-    Object file (.o)
-      ↓
-    Linker (.exe)
-      ↓
-Native executable
-```
-
-## Value Representation
-
-All JavaScript values fit in 64 bits using NaN-boxing:
-
-```
-STRING_TAG  = 0x7FFC_0000_0000_0000
-ARRAY_TAG   = 0x7FFB_0000_0000_0000
-OBJECT_TAG  = 0x7FFA_0000_0000_0000
-UNDEFINED   = 0x7FFF_8000_0000_0001
-NULL        = 0x7FFF_8000_0000_0002
-TRUE        = 0x7FFF_0000_0000_0001
-FALSE       = 0x7FFF_0000_0000_0000
-```
-
-## C Runtime
-
-ts-native includes a monolithic C runtime (`runtime_nocrt.c`) with:
-- String operations (js_string_new, js_string_concat, js_number_to_string)
-- Array operations (js_array_new, js_array_push, js_array_get, js_array_set)
-- Object operations (js_object_new, js_object_get, js_object_set)
-- Math operators (js_add, js_sub, js_mul, js_div, js_mod)
-- Comparison operators (js_eq, js_ne, js_lt, js_le, js_gt, js_ge)
-- Print operations (js_print, js_print_space, js_print_newline)
-- Math functions (js_math_floor, js_math_ceil, js_math_random, js_math_sin, ...)
-- Date/JSON (js_date_now, js_json_stringify, js_json_parse)
-- Exception handling (js_try_begin, js_try_end, js_throw, js_get_exception)
-- FFI stubs (argc, argv, now_ms, sleep, http_get, file_append, ...)
-
-## Supported TypeScript
-
-| 语法 | 状态 | 示例 | 分类 |
-|------|------|------|------|
-| function declaration | ✅ | `function foo() {}` | 函数 |
-| function expression | ✅ | `let f = function() {}` | 函数 |
-| arrow function | ✅ | `(x) => x + 1` | 函数 |
-| return | ✅ | `return x;` | 控制流 |
-| if/else | ✅ | `if (x) {} else {}` | 控制流 |
-| while | ✅ | `while (x) {}` | 控制流 |
-| for | ✅ | `for (let i=0; i<n; i++) {}` | 控制流 |
-| for...in | ✅ | `for (let k in obj) {}` | 控制流 |
-| for...of | ✅ | `for (let x of arr) {}` | 控制流 |
-| break/continue | ✅ | `break; continue;` | 控制流 |
-| try/catch/finally | ✅ | `try {} catch(e) {} finally {}` | 控制流 |
-| throw | ✅ | `throw new Error()` | 控制流 |
-| ternary (?:) | ✅ | `x ? a : b` | 表达式 |
-| let/const/var | ✅ | `let x = 1; const y = 2;` | 声明 |
-| assignment | ✅ | `x = 1; x += 2;` | 表达式 |
-| binary operators | ✅ | `+, -, *, /, %, ==, <, >, &&, ||` | 表达式 |
-| unary operators | ✅ | `-x, !x, typeof x` | 表达式 |
-| increment/decrement | ✅ | `x++; x--;` | 表达式 |
-| string literal | ✅ | `"hello", 'world'` | 字面量 |
-| template literal | ✅ | `` `hello ${name}` `` | 字面量 |
-| number literal | ✅ | `42, 3.14, 0xFF` | 字面量 |
-| boolean literal | ✅ | `true, false` | 字面量 |
-| null/undefined | ✅ | `null, undefined` | 字面量 |
-| array literal | ✅ | `[1, 2, 3]` | 字面量 |
-| object literal | ✅ | `{ key: value }` | 字面量 |
-| property access | ✅ | `obj.key, obj[0]` | 表达式 |
-| function call | ✅ | `foo(1, 2)` | 表达式 |
-| method call | ✅ | `obj.method()` | 表达式 |
-| import declaration | ✅ | `import { x } from 'mod'` | 模块 |
-| export declaration | ✅ | `export function foo() {}` | 模块 |
-| declare function | ✅ | `declare function foo(): void;` | TS扩展 |
-| interface (declare only) | ✅ | `interface Config { x: number }` | TS扩展 |
-| type annotation | ✅ | `let x: number = 1;` | TS扩展 |
-| as type assertion | ✅ | `x as number` | TS扩展 |
-| typeof operator | ✅ | `typeof x` | 表达式 |
-| console.log/print | ✅ | `console.log(x), print(x)` | 内置 |
-| Math methods | ✅ | `Math.sin, Math.random, ...` | 内置 |
-| JSON.parse/stringify | ✅ | `JSON.parse(s), JSON.stringify(o)` | 内置 |
-| Date.now | ✅ | `Date.now()` | 内置 |
-| parseInt/parseFloat | ✅ | `parseInt(s)` | 内置 |
-| class | ❌ | `class Foo {}` | 面向对象 |
-| class inheritance | ❌ | `class Bar extends Foo {}` | 面向对象 |
-| decorator | ❌ | `@decorator class Foo {}` | 面向对象 |
-| enum | ❌ | `enum E { A, B }` | 声明 |
-| async/await | ❌ | `async function f() { await p }` | 异步 |
-| generator | ❌ | `function* g() { yield 1 }` | 函数 |
-| Promise | ❌ | `new Promise((r) => r(1))` | 异步 |
-| namespace | ❌ | `namespace N { }` | TS扩展 |
-| abstract class | ❌ | `abstract class A {}` | 面向对象 |
-| with statement | ❌ | `with (obj) { }` | 遗留 |
-| labeled statement | ❌ | `label: for (;;) { break label; }` | 控制流 |
-| switch | ❌ | `switch(x) { case 1: break; }` | 控制流 |
-| do...while | ❌ | `do {} while (x)` | 控制流 |
-| new expression | ❌ | `new Foo()` | 表达式 |
-| delete/void/in | ❌ | `delete obj.key; void 0; x in obj` | 表达式 |
-| spread/rest | ❌ | `...args, fn(...a)` | 表达式 |
-| destructuring | ❌ | `let { a, b } = obj;` | 声明 |
-| default param | ❌ | `function f(x = 1) {}` | 函数 |
-| computed property | ❌ | `{ [key]: value }` | 表达式 |
-| optional chaining | ❌ | `obj?.key?.method()` | 表达式 |
-| nullish coalescing | ❌ | `x ?? y` | 表达式 |
-| regex literal | ❌ | `/pattern/flags` | 字面量 |
-| satisfies operator | ❌ | `x as const satisfies T` | TS扩展 |
-| type alias (body) | ❌ | `type T = { a: number }` | TS扩展 |
-
-## CLI Options
-
-```
-ts-native <input.ts> [-o <output>] [--skip-check] [--gen-syntax-md]
-
-  -o, --output <file>    Output file (default: <input>.exe in input directory)
-  --skip-check           Skip syntax pre-check (may cause compile errors)
-  --gen-syntax-md        Print syntax support list as Markdown table
-```
-
-## Syntax Pre-check
-
-ts-native uses **swc** to parse TypeScript into an AST and detect unsupported syntax **before** compilation. This provides clear error messages instead of cryptic compile failures:
+### 1. `cargo tsn new` - 创建项目
 
 ```bash
-$ ts-native test.ts
-❌ 检测到不支持的语法:
-   第 1 行: class (ts-native 暂不支持)
-
-提示: 使用 --skip-check 跳过检查（可能导致编译错误）
+cargo tsn new my-project
 ```
 
-## Project Structure
-
-### Minimal Project (No Config Files)
-
+生成：
 ```
 my-project/
-└── main.ts          # Only file needed!
+├── main.ts           # TypeScript 入口
+├── Cargo.toml        # Rust 配置
+├── src/
+│   └── lib.rs        # Rust 库（可选）
+└── tsnp/             # FFI 插件目录
 ```
 
-**Compile**:
+### 2. `cargo tsn prepare` - 生成 FFI 插件骨架 ⭐
+
+从 TypeScript 的 `declare function` 声明自动生成完整的插件结构。
+
+**输入**：
+```typescript
+// main.ts
+declare function crypto_md5(data: string): string;
+declare function http_get(url: string): string;
+declare function math_add(a: number, b: number): number;
+
+function main(): number {
+    let hash = crypto_md5("hello");
+    print(hash);
+    return 0;
+}
+```
+
+**运行**：
 ```bash
-ts-native main.ts    # → main.exe (same directory)
+cargo tsn prepare
 ```
 
-### FFI Project (With Extensions)
-
+**输出**：
 ```
-my-project/
-├── main.ts          # TypeScript source
-├── main.ts.toml     # Per-file dependency declaration (optional)
-└── tsnp/            # FFI extensions (optional)
-    └── my-ext/
-        ├── ts-native.toml    # Extension config
-        └── index.d.ts        # Type definitions
+📦 Analyzing TypeScript files...
+  ✓ Found: main.ts
+  ✓ Parsed 3 FFI functions
+
+🔍 Grouping functions by plugin...
+  ✓ crypto: 1 function(s)
+  ✓ http: 1 function(s)
+  ✓ math: 1 function(s)
+
+⚙️  Generating plugins...
+
+crypto ████████████████████████████████ 4/4
+  ✓ tsnp/crypto/crypto_win.c
+  ✓ tsnp/crypto/ts-native.toml
+  ✓ tsnp/crypto/ts-native-win.toml
+
+✅ Prepared 3 plugin(s) with 3 function(s)
 ```
 
-### Per-file Dependencies (`<input>.ts.toml`)
-
-Each TypeScript file can have a companion `<filename>.ts.toml` that declares which tsnp extensions it depends on:
-
-**`main.ts.toml`**:
-```toml
-[dependencies]
-tsnp = ["http", "fs", "cli"]
+**生成的文件结构**：
+```
+tsnp/
+├── crypto/
+│   ├── crypto_win.c           ← Windows C 实现（注释模板）
+│   ├── crypto_linux.c         ← Linux 占位
+│   ├── crypto_macos.c         ← macOS 占位
+│   ├── ts-native.toml         ← 主配置（含优先级）
+│   ├── ts-native-win.toml     ← Windows 平台配置
+│   ├── ts-native-linux.toml   ← Linux 平台配置
+│   ├── ts-native-macos.toml   ← macOS 平台配置
+│   └── index.d.ts             ← TypeScript 声明
+├── http/
+│   └── ... (同上)
+└── math/
+    └── ... (同上)
 ```
 
-- If `<input>.ts.toml` exists → only the listed extensions are loaded
-- If `<input>.ts.toml` does **not** exist → all tsnp extensions are loaded (backward-compatible)
-- `tsnp` tool auto-generates this file when creating plugins
+### 3. `cargo tsn add` - 添加 Crate 依赖
 
----
+```bash
+cargo tsn add serde_json
+```
 
-## FFI Extensions
+自动：
+- 添加 Rust crate 依赖
+- 扫描 crate 的 FFI 函数
+- 生成插件配置
 
-### When Do You Need FFI?
+### 4. `cargo tsn func` - 交互式添加 FFI 函数
 
-**Need FFI**:
-- ✅ Call C/Rust functions
-- ✅ Use system libraries (curl, ssl, etc.)
-- ✅ Access OS APIs (socket, file, etc.)
+```bash
+cargo tsn func
+```
 
-**Don't Need FFI**:
-- ❌ Pure TypeScript logic
-- ❌ Only use built-in runtime (js_print, js_add, etc.)
-- ❌ No external dependencies
+交互式向导：
+```
+Function name: crypto_md5
+Parameters: data: string
+Return type: string
+```
 
-### ts-native.toml Example
+### 5. `cargo tsn publish` - 发布插件
+
+```bash
+cargo tsn publish
+```
+
+发布到代码托管平台。
+
+### 6. `cargo tsn install` - 安装插件
+
+```bash
+cargo tsn install crypto
+```
+
+从远程仓库安装插件。
+
+### 7. `cargo tsn list` - 列出本地插件
+
+```bash
+cargo tsn list
+```
+
+显示已安装的插件列表。
+
+## C 文件模板说明
+
+`cargo tsn prepare` 生成的 C 文件包含**注释形式的函数模板**，而非桩实现：
+
+```c
+// Windows Implementation for crypto
+// Auto-generated by cargo tsn prepare
+// TODO: Implement your platform-specific functions here
+
+#include <windows.h>
+
+// Runtime external functions
+extern double js_string_new(const char* data, unsigned int len);
+extern const char* js_string_unpack(double val);
+extern double js_number_new(double val);
+extern double js_boolean_new(int val);
+
+// Function templates (copy and implement as needed):
+
+// ============================================================
+// crypto_md5(data: string) -> string
+//
+// double crypto_md5(double p0) {
+//     const char* data = js_string_unpack(p0);
+//     
+//     // TODO: Implement your logic here
+//     
+//     return js_string_new("", 0);
+// }
+```
+
+**设计理念**：
+- ✅ 清晰标记未实现的函数
+- ✅ 避免忘记实现函数
+- ✅ 取消注释即可开始实现
+- ✅ 不会意外编译桩代码
+
+## 配置格式
+
+### 主配置（ts-native.toml）
 
 ```toml
 [package]
-name = "tsnp-http"
+name = "tsnp-crypto"
 version = "0.1.0"
+priority = 1780656512  # 时间戳优先级
 
-[functions]
-"http_get" = { args = ["string"], ret = "string", impl_name = "http_get" }
-"http_post" = { args = ["string", "string"], ret = "string", impl_name = "http_post" }
+[includes]
+win = "ts-native-win.toml"
+linux = "ts-native-linux.toml"
+macos = "ts-native-macos.toml"
 
-[link]
-libs = ["curl", "ssl", "crypto"]
+[signatures]
+"crypto_md5" = "function(data: string): string"
+
+[build]
+warn_on_missing = true
+error_on_mismatch = true
 ```
 
-### Using FFI in TypeScript
+### 平台配置（ts-native-win.toml）
 
-```typescript
-// Declare FFI function
-declare function http_get(url: string): string;
+```toml
+[platform]
+name = "Windows"
+os = "win"
+arch = ["x86_64", "arm64"]
+description = "Windows platform"
 
-// Use it
-let response = http_get("https://example.com");
-print(response);
+[libs.default.functions]
+"crypto_md5" = {
+    impl_name = "crypto_md5",
+    enabled = true,
+    system = "SystemAPI",
+    args = ["string"],
+    ret = "string",
+    description = "MD5 hash function"
+}
 ```
 
-### Auto-generating `<input>.ts.toml`
-
-When you use `tsnp` to generate a plugin, it automatically creates or updates the `.ts.toml` dependency file for all `.ts` files in the current directory:
+## 命令行选项
 
 ```bash
-$ cargo tsnp gen my-crate
-  ✓ ts-native.toml
-  ✓ index.d.ts
-  ✓ main.ts.toml      # auto-generated
+cargo tsn prepare [OPTIONS]
+
+Options:
+  --input <FILE>         指定输入文件（默认：自动扫描 *.ts）
+  --output <DIR>         输出目录（默认：.）
+  --verbose              详细输出
+  --quiet                仅显示错误
 ```
 
-### Official Contrib Plugins (`tsnp-contrib/`)
-
-ts-native ships with official plugins in `tsnp-contrib/`:
-
-| Plugin | Description |
-|--------|-------------|
-| `cli` | Command-line arguments (argc, argv) |
-| `fs` | File system operations (file_append, file_exists) |
-| `metric-api` | Metric API client (http_get) |
-| `dom-iot` | DOM runtime for IoT |
-| `mqtt` | MQTT protocol support |
-
-Copy plugins from `tsnp-contrib/` to your project's `tsnp/` directory to use them.
-
----
-
-## Examples
-
-See `examples/` directory for complete projects:
-
-- **metric-collector**: Monitoring CLI with FFI (http, fs, cli)
-
----
-
-## Source Structure
+## 工作流
 
 ```
-ts-native/
-├── src/
-│   ├── main.rs          # CLI entry point
-│   ├── ts_parser.rs     # TypeScript lexer & parser
-│   ├── codegen.rs       # Cranelift code generation
-│   ├── syntax_check.rs  # swc-based syntax pre-check
-│   ├── linker.rs        # Native linker
-│   ├── extension.rs     # Plugin loading
-│   ├── config.rs        # Configuration
-│   ├── runtime.rs       # Runtime helpers
-│   └── pe_builder.rs    # PE executable builder
-├── tsnp-contrib/        # Official contrib plugins
-├── runtime_nocrt.c      # Monolithic C runtime
-├── start_nocrt.c        # nocrt entry point (_start)
-└── Cargo.toml
+1. 编写 TypeScript 代码
+   ↓
+2. 声明 FFI 函数（declare function）
+   ↓
+3. cargo tsn prepare（生成插件骨架）
+   ↓
+4. 手动实现 C 函数
+   ↓
+5. 编译 C 文件为 .o
+   ↓
+6. ts-native main.ts（编译链接）
+   ↓
+7. 运行测试
 ```
 
-## Related Tools
+## 与 tsnp 的区别
 
-| Tool | Description | Install |
-|------|-------------|---------|
-| **tsn** | Same as ts-native, shorter name | `cargo install tsn` |
-| **tsnp** | Auto-generate FFI plugin configs from Rust crates | `cargo install tsnp` |
-| **cargo-tsn** | Project manager for ts-native | `cargo install cargo-tsn` |
+| 工具 | 职责 | 输入 | 输出 |
+|------|------|------|------|
+| **tsnp new** | 创建空插件模板 | 插件名 | 空模板文件 |
+| **tsnp gen** | 从 crate 生成配置 | crate 名 | 配置文件 |
+| **tsn prepare** | 从 TS 源码生成实现 | TS 文件 | C 模板 + 配置 |
 
-## License
+## 插件优先级
+
+使用当前时间戳作为插件优先级，确保：
+- ✅ 唯一性（不会冲突）
+- ✅ 时间顺序（后生成的优先级更高）
+- ✅ 支持小数和负数
+
+## 相关工具
+
+| 工具 | 描述 | 安装 |
+|------|------|------|
+| **ts-native** | TypeScript 到原生可执行文件编译器 | `cargo install ts-native` |
+| **tsn** | 同上，更短的名称 | `cargo install tsn` |
+| **tsnp** | 从 Rust crate 生成插件配置 | `cargo install tsnp` |
+
+## 许可证
 
 MIT

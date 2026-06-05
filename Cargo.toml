@@ -1,14 +1,15 @@
 [package]
 name = "cargo-tsn"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "tsn project manager"
+description = "ts-native project manager - Auto-generate FFI plugin scaffolds from TypeScript source"
 license = "MIT"
 authors = ["michael"]
 repository = "https://github.com/itszzl-sudo/cargo-tsn"
 readme = "README.md"
-keywords = ["typescript", "native", "compiler", "ffi"]
-categories = ["development-tools"]
+keywords = ["typescript", "native", "compiler", "ffi", "project-manager"]
+categories = ["development-tools", "command-line-utilities"]
+rust-version = "1.70"
 
 [[bin]]
 name = "cargo-tsn"
