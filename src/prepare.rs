@@ -373,7 +373,7 @@ fn generate_platform_toml(
             func.name
         ));
         content.push_str(&format!("    impl_name = \"{}\",\n", c_func_name));
-        content.push_str("    enabled = true,\n");
+        content.push_str("    enabled = false,\n");
         content.push_str(&format!("    system = \"{}\",\n", system));
         content.push_str(&format!("    args = [{}],\n", args.join(", ")));
         content.push_str(&format!("    ret = \"{}\",\n", func.return_type));
