@@ -56,6 +56,43 @@ fn main() -> Result<()> {
     }
 }
 
+/// 确保 TOML 文件的 priority 字段为 1000
+fn ensure_priority_1000(toml_path: &str) -> Result<()> {
+    let content = fs::read_to_string(toml_path)
+        .with_context(|| format!("Failed to read {}", toml_path))?;
+    
+    let mut updated = content.clone();
+    
+    if content.contains("priority =") {
+        // 替换现有 priority
+        updated = content
+            .lines()
+            .map(|line| {
+                if line.trim().starts_with("priority =") {
+                    "priority = 1000".to_string()
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    } else {
+        // 在 [package] 下添加
+        if let Some(pos) = content.find("[package]\n") {
+            let insert_pos = pos + "[package]\n".len();
+            let next_section = content[insert_pos..].find('\n')
+                .map(|p| insert_pos + p)
+                .unwrap_or(content.len());
+            updated.insert_str(next_section, "\npriority = 1000");
+        }
+    }
+    
+    fs::write(toml_path, updated)
+        .with_context(|| format!("Failed to update priority in {}", toml_path))?;
+    
+    Ok(())
+}
+
 fn cmd_new(name: &str) -> Result<()> {
     println!("Creating tsn project: {}", name);
     
@@ -129,35 +166,7 @@ fn cmd_add(crate_name: &str) -> Result<()> {
     } else {
         // 设置默认优先级为 1000
         let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
-        if let Ok(mut content) = fs::read_to_string(&toml_path) {
-            // 替换或添加 priority 字段
-            if content.contains("priority =") {
-                // 替换现有 priority
-                content = content
-                    .lines()
-                    .map(|line| {
-                        if line.trim().starts_with("priority =") {
-                            "priority = 1000".to_string()
-                        } else {
-                            line.to_string()
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-            } else {
-                // 在 [package] 下添加
-                if let Some(pos) = content.find("[package]\n") {
-                    let insert_pos = pos + "[package]\n".len();
-                    // 找到下一个段或文件结尾
-                    let next_section = content[insert_pos..].find('\n')
-                        .map(|p| insert_pos + p)
-                        .unwrap_or(content.len());
-                    content.insert_str(next_section, "\npriority = 1000");
-                }
-            }
-            fs::write(&toml_path, content)
-                .context("Failed to update priority")?;
-        }
+        ensure_priority_1000(&toml_path)?;
     }
     
     println!("\n✅ Added crate: {}", crate_name);
@@ -296,56 +305,42 @@ pub extern "C" fn {}({}) -> {} {{
     
     // 追加到 src/lib.rs
     let lib_rs_path = "src/lib.rs";
-    if let Ok(mut content) = fs::read_to_string(lib_rs_path) {
-        content.push_str(&ffi_code);
-        fs::write(lib_rs_path, content).context("Failed to write lib.rs")?;
-    }
+    let mut content = fs::read_to_string(lib_rs_path)
+        .unwrap_or_default(); // 不存在则创建新文件
+    content.push_str(&ffi_code);
+    fs::write(lib_rs_path, content).context("Failed to write lib.rs")?;
     
     // 更新 ts-native.toml
     let toml_path = format!("tsnp/{}/ts-native.toml", crate_name);
-    if let Ok(mut content) = fs::read_to_string(&toml_path) {
-        // 确保优先级为 1000
-        if content.contains("priority =") {
-            content = content
-                .lines()
-                .map(|line| {
-                    if line.trim().starts_with("priority =") {
-                        "priority = 1000".to_string()
-                    } else {
-                        line.to_string()
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-        } else {
-            if let Some(pos) = content.find("[package]\n") {
-                let insert_pos = pos + "[package]\n".len();
-                let next_section = content[insert_pos..].find('\n')
-                    .map(|p| insert_pos + p)
-                    .unwrap_or(content.len());
-                content.insert_str(next_section, "\npriority = 1000");
-            }
-        }
-        
-        // 推断 TypeScript 类型
-        let ts_params = infer_ts_params(params);
-        let ts_ret = infer_ts_type(ret_type);
-        
-        let func_entry = format!(
-            r#""{}" = {{ args = [{}], ret = "{}", impl_name = "{}" }}
+    ensure_priority_1000(&toml_path)?;
+    
+    // 读取更新后的内容
+    let mut content = fs::read_to_string(&toml_path)
+        .context("Failed to read ts-native.toml")?;
+    
+    // 推断 TypeScript 类型
+    let ts_params = infer_ts_params(params);
+    let ts_ret = infer_ts_type(ret_type);
+    
+    let func_entry = format!(
+        r#""{}" = {{ args = [{}], ret = "{}", impl_name = "{}" }}
 "#,
-            func_name,
-            ts_params.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", "),
-            ts_ret,
-            func_name
-        );
-        
-        // 在 [functions] 下添加
-        if let Some(pos) = content.find("[functions]\n") {
-            let insert_pos = pos + "[functions]\n".len();
-            content.insert_str(insert_pos, &func_entry);
-            fs::write(&toml_path, content).context("Failed to write toml")?;
-        }
+        func_name,
+        ts_params.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", "),
+        ts_ret,
+        func_name
+    );
+    
+    // 在 [functions] 下添加
+    if let Some(pos) = content.find("[functions]\n") {
+        let insert_pos = pos + "[functions]\n".len();
+        content.insert_str(insert_pos, &func_entry);
+        fs::write(&toml_path, content).context("Failed to write toml")?;
+    } else {
+        // 如果 [functions] 段不存在，添加它
+        content.push_str("\n[functions]\n");
+        content.push_str(&func_entry);
+        fs::write(&toml_path, content).context("Failed to write toml")?;
     }
     
     Ok(())
