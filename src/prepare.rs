@@ -87,6 +87,47 @@ pub fn group_by_plugin(functions: &[FFIFunction]) -> HashMap<String, Vec<FFIFunc
     groups
 }
 
+/// 生成 .ts.toml 文件
+fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunction>>, output: &str) -> Result<()> {
+    use std::path::Path;
+    
+    // 对每个 TS 文件生成 .ts.toml
+    for ts_file in ts_files {
+        let path = Path::new(ts_file);
+        let file_stem = path.file_stem()
+            .ok_or_else(|| anyhow::anyhow!("Invalid file name: {}", ts_file))?;
+        
+        let toml_name = format!("{}.toml", file_stem.to_string_lossy());
+        let toml_path = Path::new(output).join(&toml_name);
+        
+        // 收集这个文件用到的插件
+        let plugins: Vec<String> = groups.keys()
+            .filter(|k| *k != "default")
+            .cloned()
+            .collect();
+        
+        if plugins.is_empty() {
+            continue;
+        }
+        
+        // 生成 TOML 内容
+        let toml_content = format!(
+            "[dependencies]\ntsnp = [{}]\n",
+            plugins.iter()
+                .map(|p| format!("\"{}\"", p))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        
+        fs::write(&toml_path, &toml_content)
+            .context(format!("Failed to write {}", toml_path.display()))?;
+        
+        println!("  ✓ {}", toml_name);
+    }
+    
+    Ok(())
+}
+
 /// 生成插件文件
 pub fn generate_plugin(plugin_name: &str, functions: &[FFIFunction], output_dir: &str, no_stubs: bool) -> Result<()> {
     let plugin_dir = format!("{}/tsnp/{}", output_dir, plugin_name);
@@ -539,6 +580,9 @@ pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool, no_stubs: b
             generate_plugin(plugin_name, funcs, output, no_stubs)?;
             println!();
         }
+        
+        // 生成 .ts.toml 文件
+        generate_ts_toml(&ts_files, &groups, output)?;
         
         println!("✅ Prepared {} plugin(s) with {} function(s)", groups.len(), functions.len());
     }
