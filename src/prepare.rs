@@ -158,6 +158,10 @@ fn generate_c_file(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunction
         content.push_str("extern double js_number_new(double val);\n");
         content.push_str("extern double js_boolean_new(int val);\n");
         content.push_str("extern double js_undefined();\n");
+        content.push_str("extern double js_null();\n");
+        content.push_str("extern double js_undefined_public();\n");
+        content.push_str("extern double js_array_new(double capacity);\n");
+        content.push_str("extern double js_object_new();\n");
         content.push_str("extern double console_log(double msg_val);\n");
         content.push_str("extern double console_debug(double msg_val);\n");
         content.push_str("extern double console_err(double msg_val);\n\n");
@@ -278,6 +282,22 @@ fn generate_function_impl(func: &FFIFunction) -> String {
         "boolean" => {
             impl_str.push_str("    // Stub: return false\n");
             impl_str.push_str("    return 0;\n");
+        }
+        "array" => {
+            impl_str.push_str("    // Stub: return empty array []\n");
+            impl_str.push_str("    return js_array_new(0);\n");
+        }
+        "object" => {
+            impl_str.push_str("    // Stub: return empty object {}\n");
+            impl_str.push_str("    return js_object_new();\n");
+        }
+        "null" => {
+            impl_str.push_str("    // Stub: return null\n");
+            impl_str.push_str("    return js_null();\n");
+        }
+        "undefined" => {
+            impl_str.push_str("    // Stub: return undefined\n");
+            impl_str.push_str("    return js_undefined_public();\n");
         }
         "void" => {
             impl_str.push_str("    // Stub: void function\n");
@@ -610,13 +630,29 @@ fn generate_function_stub_with_console(func: &FFIFunction) -> String {
             impl_str.push_str("    // Stub: return false\n");
             impl_str.push_str("    return 0;\n");
         }
+        "array" => {
+            impl_str.push_str("    // Stub: return empty array []\n");
+            impl_str.push_str("    return js_array_new(0);\n");
+        }
+        "object" => {
+            impl_str.push_str("    // Stub: return empty object {}\n");
+            impl_str.push_str("    return js_object_new();\n");
+        }
+        "null" => {
+            impl_str.push_str("    // Stub: return null\n");
+            impl_str.push_str("    return js_null();\n");
+        }
+        "undefined" => {
+            impl_str.push_str("    // Stub: return undefined\n");
+            impl_str.push_str("    return js_undefined_public();\n");
+        }
         "void" => {
             impl_str.push_str("    // Stub: void function\n");
             impl_str.push_str("    return 0;\n");
         }
         _ => {
             impl_str.push_str(&format!(
-                "    // TODO: Pack return value of type '{}'\n",
+                "    console_err(\"⚠️ Unknown return type '{}', returning 0\");\n",
                 func.return_type
             ));
             impl_str.push_str("    return 0;\n");
