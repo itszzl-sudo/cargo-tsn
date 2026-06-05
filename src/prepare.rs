@@ -150,27 +150,48 @@ fn generate_c_file(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunction
         plugin_name
     );
     
+    // 仅为 Windows 平台生成头文件和函数声明模板
     if platform == "win" {
         content.push_str("#include <windows.h>\n\n");
-    }
-    
-    content.push_str("// Runtime external functions\n");
-    content.push_str("extern double js_string_new(const char* data, unsigned int len);\n");
-    content.push_str("extern const char* js_string_unpack(double val);\n");
-    content.push_str("extern double js_number_new(double val);\n");
-    content.push_str("extern double js_boolean_new(int val);\n\n");
-    
-    // 生成函数实现
-    for func in functions {
-        content.push_str(&generate_function_impl(func));
-        content.push_str("\n");
+        content.push_str("// Runtime external functions\n");
+        content.push_str("extern double js_string_new(const char* data, unsigned int len);\n");
+        content.push_str("extern const char* js_string_unpack(double val);\n");
+        content.push_str("extern double js_number_new(double val);\n");
+        content.push_str("extern double js_boolean_new(int val);\n\n");
+        
+        // 生成函数声明模板（注释形式，不生成实现）
+        content.push_str("// Function templates (copy and implement as needed):\n\n");
+        for func in functions {
+            content.push_str(&format!("// {}\n", "=".repeat(60)));
+            content.push_str(&format!("// {}({}) -> {}\n", func.name, 
+                func.params.iter().map(|p| format!("{}: {}", p.name, p.param_type)).collect::<Vec<_>>().join(", "),
+                func.return_type
+            ));
+            content.push_str("//\n");
+            content.push_str(&format!("// double {}({}) {{\n", func.name,
+                (0..func.params.len()).map(|i| format!("double p{}", i)).collect::<Vec<_>>().join(", ")
+            ));
+            content.push_str("//     // TODO: Implement your logic here\n");
+            content.push_str("//     return 0;\n");
+            content.push_str("// }\n\n");
+        }
+    } else {
+        // Linux/macOS 占位文件
+        content.push_str(&format!(
+            "// TODO: Implement {} functions for {}\n\
+             // This is a placeholder file.\n\
+             // Add your platform-specific implementations here.\n",
+            plugin_name,
+            get_platform_name(platform)
+        ));
     }
     
     fs::write(&file_path, content)?;
     Ok(())
 }
 
-/// 生成单个函数的 C 实现
+/// 生成单个函数的 C 实现（保留以备将来使用）
+#[allow(dead_code)]
 fn generate_function_impl(func: &FFIFunction) -> String {
     let mut impl_str = String::new();
     
@@ -181,7 +202,7 @@ fn generate_function_impl(func: &FFIFunction) -> String {
     
     impl_str.push_str(&format!("double {}({}) {{\n", func.name, param_decls.join(", ")));
     
-    // 参数解包
+    // 参数解包（标记为未使用以避免编译警告）
     for (i, param) in func.params.iter().enumerate() {
         let param_name = format!("p{}", i);
         let local_name = param.name.clone();
@@ -192,18 +213,21 @@ fn generate_function_impl(func: &FFIFunction) -> String {
                     "    const char* {} = js_string_unpack({});\n",
                     local_name, param_name
                 ));
+                impl_str.push_str(&format!("    (void){}; // Stub: parameter unpacked but not used\n", local_name));
             }
             "number" => {
                 impl_str.push_str(&format!(
                     "    double {} = {};\n",
                     local_name, param_name
                 ));
+                impl_str.push_str(&format!("    (void){}; // Stub: parameter not used\n", local_name));
             }
             "boolean" => {
                 impl_str.push_str(&format!(
                     "    int {} = (int){};\n",
                     local_name, param_name
                 ));
+                impl_str.push_str(&format!("    (void){}; // Stub: parameter not used\n", local_name));
             }
             _ => {
                 impl_str.push_str(&format!(
@@ -218,22 +242,22 @@ fn generate_function_impl(func: &FFIFunction) -> String {
     impl_str.push_str("    // TODO: Implement your logic here\n");
     impl_str.push_str("\n");
     
-    // 返回值打包
+    // 返回值打包（桩实现）
     match func.return_type.as_str() {
         "string" => {
-            impl_str.push_str("    const char* result = \"\";\n");
-            impl_str.push_str("    unsigned int len = 0;\n");
-            impl_str.push_str("    return js_string_new(result, len);\n");
+            impl_str.push_str("    // Stub: return empty string\n");
+            impl_str.push_str("    return js_string_new(\"\", 0);\n");
         }
         "number" => {
-            impl_str.push_str("    double result = 0.0;\n");
-            impl_str.push_str("    return js_number_new(result);\n");
+            impl_str.push_str("    // Stub: return 0\n");
+            impl_str.push_str("    return 0.0;\n");
         }
         "boolean" => {
-            impl_str.push_str("    int result = 0;\n");
-            impl_str.push_str("    return js_boolean_new(result);\n");
+            impl_str.push_str("    // Stub: return false\n");
+            impl_str.push_str("    return 0;\n");
         }
         "void" => {
+            impl_str.push_str("    // Stub: void function\n");
             impl_str.push_str("    return 0;\n");
         }
         _ => {
