@@ -34,6 +34,12 @@
 
 ### Changed
 
+- **禁用 publish 和 install 命令**
+  - 原因：缺乏社区贡献
+  - 原因：Codeberg 存储方式不合适
+  - 原因：无人使用
+  - 状态：代码保留但已注释，未来可恢复
+
 - **更新 Extension 结构体**（ts-native 侧）
   - 添加 `includes` 字段（平台配置引用）
   - 添加 `signatures` 字段（函数签名声明）

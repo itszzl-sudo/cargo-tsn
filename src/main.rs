@@ -27,25 +27,27 @@ enum Commands {
     },
     #[command(about = "Interactively add FFI function")]
     Func,
-    #[command(about = "Publish plugins to codeberg")]
-    Publish {
-        #[arg(long, help = "Show what would be published without actually publishing")]
-        dry_run: bool,
-    },
+    // #[command(about = "Publish plugins to codeberg (DISABLED)")]
+    // Publish {
+    //     #[arg(long, help = "Show what would be published without actually publishing")]
+    //     dry_run: bool,
+    // },
     #[command(about = "List local plugins")]
     List,
-    #[command(about = "Install a published plugin from Codeberg")]
-    Install {
-        name: String,
-        #[arg(long, help = "Specific version to install")]
-        version: Option<String>,
-    },
+    // #[command(about = "Install a published plugin from Codeberg (DISABLED)")]
+    // Install {
+    //     name: String,
+    //     #[arg(long, help = "Specific version to install")]
+    //     version: Option<String>,
+    // },
     #[command(about = "Generate C stubs from TypeScript FFI declarations")]
     Prepare {
         #[arg(long, help = "Input TypeScript file(s)")]
         input: Option<String>,
         #[arg(long, default_value = ".", help = "Output directory")]
         output: String,
+        #[arg(long, help = "Preview mode (no files will be written)")]
+        dry_run: bool,
     },
 }
 
@@ -56,12 +58,12 @@ fn main() -> Result<()> {
         Commands::New { name } => cmd_new(&name),
         Commands::Add { crate_name } => cmd_add(&crate_name),
         Commands::Func => cmd_func(),
-        Commands::Publish { dry_run } => cmd_publish(dry_run),
+        // Commands::Publish { dry_run } => cmd_publish(dry_run),  // DISABLED
         Commands::List => cmd_list(),
-        Commands::Install { name, version } => cmd_install(&name, version.as_deref()),
-        Commands::Prepare { input, output } => {
+        // Commands::Install { name, version } => cmd_install(&name, version.as_deref()),  // DISABLED
+        Commands::Prepare { input, output, dry_run } => {
             let input_ref = input.as_deref();
-            prepare::cmd_prepare(input_ref, &output)
+            prepare::cmd_prepare(input_ref, &output, dry_run)
         }
     }
 }

@@ -133,29 +133,33 @@ Parameters: data: string
 Return type: string
 ```
 
-### 5. `cargo tsn publish` - 发布插件
-
-```bash
-cargo tsn publish
-```
-
-发布到代码托管平台。
-
-### 6. `cargo tsn install` - 安装插件
-
-```bash
-cargo tsn install crypto
-```
-
-从远程仓库安装插件。
-
-### 7. `cargo tsn list` - 列出本地插件
+### 5. `cargo tsn list` - 列出本地插件
 
 ```bash
 cargo tsn list
 ```
 
 显示已安装的插件列表。
+
+~~### 6. `cargo tsn publish` - 发布插件~~
+
+~~```bash
+cargo tsn publish
+~~~
+
+~~发布到代码托管平台。~~
+
+**DISABLED**: 该功能已禁用，因为目前缺乏社区贡献和合适的存储方案。
+
+~~### 7. `cargo tsn install` - 安装插件~~
+
+~~```bash
+cargo tsn install crypto
+~~~
+
+~~从远程仓库安装插件。~~
+
+**DISABLED**: 该功能已禁用，因为目前缺乏社区贡献和合适的存储方案。
 
 ## C 文件模板说明
 

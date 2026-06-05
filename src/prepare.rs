@@ -421,7 +421,7 @@ pub fn find_ts_files(dir: &str) -> Result<Vec<String>> {
 }
 
 /// prepare 命令主入口
-pub fn cmd_prepare(input: Option<&str>, output: &str) -> Result<()> {
+pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool) -> Result<()> {
     println!("📦 Analyzing TypeScript files...");
     
     // 1. 查找 TS 文件
@@ -455,14 +455,49 @@ pub fn cmd_prepare(input: Option<&str>, output: &str) -> Result<()> {
     }
     
     // 4. 生成插件文件
-    println!("\n⚙️  Generating plugins...\n");
-    
-    for (plugin_name, funcs) in &groups {
-        generate_plugin(plugin_name, funcs, output)?;
-        println!();
+    if dry_run {
+        println!("\n🔍 Preview mode (no files will be written):\n");
+        
+        for (plugin_name, funcs) in &groups {
+            let plugin_dir = format!("{}/tsnp/{}", output, plugin_name);
+            println!("📁 {}/", plugin_dir);
+            
+            // Windows C 文件
+            let win_c = format!("{}_win.c", plugin_name.replace("-", "_"));
+            println!("   📄 {}", win_c);
+            
+            // Linux/macOS C 文件
+            println!("   📄 {}_linux.c", plugin_name.replace("-", "_"));
+            println!("   📄 {}_macos.c", plugin_name.replace("-", "_"));
+            
+            // 配置文件
+            println!("   📄 ts-native.toml");
+            println!("   📄 ts-native-win.toml");
+            println!("   📄 ts-native-linux.toml");
+            println!("   📄 ts-native-macos.toml");
+            
+            // 函数列表
+            println!("   📝 Functions:");
+            for func in funcs {
+                let params: Vec<String> = func.params.iter()
+                    .map(|p| format!("{}: {}", p.name, p.param_type))
+                    .collect();
+                println!("      - {}({}) -> {}", func.name, params.join(", "), func.return_type);
+            }
+            println!();
+        }
+        
+        println!("✅ Would prepare {} plugin(s) with {} function(s)", groups.len(), functions.len());
+    } else {
+        println!("\n⚙️  Generating plugins...\n");
+        
+        for (plugin_name, funcs) in &groups {
+            generate_plugin(plugin_name, funcs, output)?;
+            println!();
+        }
+        
+        println!("✅ Prepared {} plugin(s) with {} function(s)", groups.len(), functions.len());
     }
-    
-    println!("✅ Prepared {} plugin(s) with {} function(s)", groups.len(), functions.len());
     
     Ok(())
 }
