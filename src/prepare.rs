@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use indicatif::{ProgressBar, ProgressStyle};
-use chrono::Utc;
 
 /// FFI 函数信息
 #[derive(Debug, Clone)]
@@ -278,8 +277,8 @@ fn generate_function_impl(func: &FFIFunction) -> String {
 fn generate_main_toml(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunction]) -> Result<()> {
     let file_path = format!("{}/ts-native.toml", plugin_dir);
     
-    // 使用时间戳作为优先级
-    let timestamp = Utc::now().timestamp();
+    // 自定义插件默认优先级 1000
+    let priority = 1000.0;
     
     let mut content = format!(
         "# ts-native Plugin Configuration\n\
@@ -289,7 +288,7 @@ fn generate_main_toml(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunct
          name = \"tsnp-{}\"\n\
          version = \"0.1.0\"\n\
          priority = {}\n\n",
-        plugin_name, plugin_name, timestamp
+        plugin_name, plugin_name, priority
     );
     
     content.push_str("[includes]\n");

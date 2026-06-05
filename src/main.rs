@@ -25,8 +25,8 @@ enum Commands {
     Add {
         crate_name: String,
     },
-    // #[command(about = "Interactively add FFI function (DISABLED - use prepare instead)")]
-    // Func,
+    #[command(about = "Interactively add FFI function to existing plugin")]
+    Func,
     // #[command(about = "Publish plugins to codeberg (DISABLED)")]
     // Publish {
     //     #[arg(long, help = "Show what would be published without actually publishing")]
@@ -57,7 +57,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::New { name } => cmd_new(&name),
         Commands::Add { crate_name } => cmd_add(&crate_name),
-        // Commands::Func => cmd_func(),  // DISABLED - use prepare instead
+        Commands::Func => cmd_func(),
         // Commands::Publish { dry_run } => cmd_publish(dry_run),  // DISABLED
         Commands::List => cmd_list(),
         // Commands::Install { name, version } => cmd_install(&name, version.as_deref()),  // DISABLED

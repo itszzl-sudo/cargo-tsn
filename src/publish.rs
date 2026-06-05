@@ -87,27 +87,91 @@ pub fn cmd_publish(dry_run: bool) -> Result<()> {
 }
 
 pub fn cmd_list() -> Result<()> {
-    println!("Listing local plugins:");
+    // 1. 显示开发者自定义插件（tsnp/）
+    println!("📦 Developer Plugins (tsnp/):");
     
     let tsnp_dir = Path::new("tsnp");
-    if !tsnp_dir.exists() {
-        println!("No tsnp/ directory found.");
-        return Ok(());
-    }
-    
-    for entry in fs::read_dir(tsnp_dir).context("Failed to read tsnp directory")?.filter_map(|e| e.ok()) {
-        if entry.path().is_dir() {
-            if let Some(name) = entry.file_name().to_str() {
-                let toml_path = entry.path().join("ts-native.toml");
-                if toml_path.exists() {
-                    if let Ok(version) = extract_version_from_toml(&toml_path) {
-                        println!("  - {} v{}", name, version);
-                    } else {
-                        println!("  - {} (error reading toml)", name);
+    if tsnp_dir.exists() {
+        let mut found = false;
+        for entry in fs::read_dir(tsnp_dir).context("Failed to read tsnp directory")?.filter_map(|e| e.ok()) {
+            if entry.path().is_dir() {
+                if let Some(name) = entry.file_name().to_str() {
+                    let toml_path = entry.path().join("ts-native.toml");
+                    if toml_path.exists() {
+                        if let Ok(content) = fs::read_to_string(&toml_path) {
+                            if let Ok(toml_val) = content.parse::<toml::Value>() {
+                                let version = toml_val.get("package")
+                                    .and_then(|p| p.get("version"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown");
+                                let priority = toml_val.get("package")
+                                    .and_then(|p| p.get("priority"))
+                                    .and_then(|p| p.as_float())
+                                    .unwrap_or(1000.0);
+                                println!("  - {} v{} (priority: {})", name, version, priority);
+                                found = true;
+                            } else {
+                                println!("  - {} (error parsing toml)", name);
+                            }
+                        }
                     }
                 }
             }
         }
+        if !found {
+            println!("  (no plugins found)");
+        }
+    } else {
+        println!("  (no tsnp/ directory)");
+    }
+    
+    // 2. 显示官方插件（tsnp-contrib/）
+    println!("\n🏛️  Official Plugins (tsnp-contrib/):");
+    
+    // 查找 tsnp-contrib 目录（可能在当前目录或上级目录）
+    let contrib_dirs = vec![
+        Path::new("tsnp-contrib").to_path_buf(),
+        Path::new("../tsnp-contrib").to_path_buf(),
+        Path::new("../ts-native/tsnp-contrib").to_path_buf(),
+    ];
+    
+    let mut contrib_dir_found = false;
+    for contrib_dir in &contrib_dirs {
+        if contrib_dir.exists() {
+            let mut found = false;
+            for entry in fs::read_dir(contrib_dir).context("Failed to read tsnp-contrib directory")?.filter_map(|e| e.ok()) {
+                if entry.path().is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        let toml_path = entry.path().join("ts-native.toml");
+                        if toml_path.exists() {
+                            if let Ok(content) = fs::read_to_string(&toml_path) {
+                                if let Ok(toml_val) = content.parse::<toml::Value>() {
+                                    let version = toml_val.get("package")
+                                        .and_then(|p| p.get("version"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("unknown");
+                                    let priority = toml_val.get("package")
+                                        .and_then(|p| p.get("priority"))
+                                        .and_then(|p| p.as_float())
+                                        .unwrap_or(0.0);
+                                    println!("  - {} v{} (priority: {})", name, version, priority);
+                                    found = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !found {
+                println!("  (no plugins found)");
+            }
+            contrib_dir_found = true;
+            break;
+        }
+    }
+    
+    if !contrib_dir_found {
+        println!("  (tsnp-contrib/ not found)");
     }
     
     Ok(())
