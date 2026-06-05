@@ -12,8 +12,12 @@ cargo install cargo-tsn
 cargo tsn new my-project
 cd my-project
 
-# 从 TypeScript 源码生成 FFI 插件
+# 编写 TypeScript 代码（包含 declare function）
+# 然后生成 FFI 插件骨架
 cargo tsn prepare
+
+# 拷贝到 tsnp 目录
+cp -r prepared/tsnp/* tsnp/
 
 # 编译运行
 ts-native main.ts
@@ -27,7 +31,7 @@ ts-native main.ts
 - **项目脚手架**：快速创建 ts-native 项目
 - **FFI 插件生成**：从 TypeScript 声明自动生成 C 插件骨架
 - **依赖管理**：管理插件依赖关系
-- **发布工具**：发布和安装插件
+- **智能优先级**：自定义插件默认优先级 1000，高于官方插件（0）
 
 ## 核心功能
 
@@ -70,7 +74,7 @@ function main(): number {
 cargo tsn prepare
 ```
 
-**输出**：
+**输出到 `prepared/` 目录**：
 ```
 📦 Analyzing TypeScript files...
   ✓ Found: main.ts
@@ -84,21 +88,26 @@ cargo tsn prepare
 ⚙️  Generating plugins...
 
 crypto ████████████████████████████████ 4/4
-  ✓ tsnp/crypto/crypto_win.c
-  ✓ tsnp/crypto/ts-native.toml
-  ✓ tsnp/crypto/ts-native-win.toml
+  ✓ prepared/tsnp/crypto/crypto_win.c
+  ✓ prepared/tsnp/crypto/ts-native.toml
+  ✓ prepared/tsnp/crypto/ts-native-win.toml
 
 ✅ Prepared 3 plugin(s) with 3 function(s)
 ```
 
+**预览模式**（不生成文件）：
+```bash
+cargo tsn prepare --dry-run
+```
+
 **生成的文件结构**：
 ```
-tsnp/
+prepared/tsnp/
 ├── crypto/
-│   ├── crypto_win.c           ← Windows C 实现（注释模板）
-│   ├── crypto_linux.c         ← Linux 占位
-│   ├── crypto_macos.c         ← macOS 占位
-│   ├── ts-native.toml         ← 主配置（含优先级）
+│   ├── crypto_win.c           ← Windows C 模板（注释形式）
+│   ├── crypto_linux.c         ← Linux 模板
+│   ├── crypto_macos.c         ← macOS 模板
+│   ├── ts-native.toml         ← 主配置（priority = 1000）
 │   ├── ts-native-win.toml     ← Windows 平台配置
 │   ├── ts-native-linux.toml   ← Linux 平台配置
 │   ├── ts-native-macos.toml   ← macOS 平台配置
@@ -109,6 +118,19 @@ tsnp/
     └── ... (同上)
 ```
 
+**工作流**：
+```
+1. cargo tsn prepare                # 生成到 prepared/tsnp/
+   ↓
+2. 检查生成的内容
+   ↓
+3. cp -r prepared/tsnp/* tsnp/     # 手动拷贝到 tsnp/
+   ↓
+4. 实现 C 函数
+   ↓
+5. ts-native main.ts                # 编译链接
+```
+
 ### 3. `cargo tsn add` - 添加 Crate 依赖
 
 ```bash
@@ -117,8 +139,8 @@ cargo tsn add serde_json
 
 自动：
 - 添加 Rust crate 依赖
+- 生成插件配置（priority = 1000）
 - 扫描 crate 的 FFI 函数
-- 生成插件配置
 
 ### 4. `cargo tsn func` - 交互式添加 FFI 函数
 
@@ -128,10 +150,19 @@ cargo tsn func
 
 交互式向导：
 ```
-Function name: crypto_md5
+Select crate:
+[1] crypto (tsnp/crypto/)
+[2] http (tsnp/http/)
+[q] Quit
+
+Select: 1
+
+Function name: crypto_sha256
 Parameters: data: string
 Return type: string
 ```
+
+**适用场景**：快速向现有插件添加单个函数
 
 ### 5. `cargo tsn list` - 列出本地插件
 
@@ -139,25 +170,29 @@ Return type: string
 cargo tsn list
 ```
 
-显示已安装的插件列表。
+**输出示例**：
+```
+📦 Developer Plugins (tsnp/):
+  - crypto v0.1.0 (priority: 1000)
+  - http v0.1.0 (priority: 1000)
 
-~~### 6. `cargo tsn publish` - 发布插件~~
+🏛️  Official Plugins (tsnp-contrib/):
+  - cli v0.1.0 (priority: 0)
+  - fs v0.1.0 (priority: 0)
+  - mqtt v0.1.0 (priority: 0)
+```
 
-~~```bash
-cargo tsn publish
-~~~
+**特性**：
+- 区分开发者自定义插件和官方插件
+- 优先显示自定义插件（tsnp/）
+- 显示版本号和优先级
+- 自动搜索 tsnp-contrib 目录
 
-~~发布到代码托管平台。~~
+### 6. ~~`cargo tsn publish`~~ - 已禁用
 
 **DISABLED**: 该功能已禁用，因为目前缺乏社区贡献和合适的存储方案。
 
-~~### 7. `cargo tsn install` - 安装插件~~
-
-~~```bash
-cargo tsn install crypto
-~~~
-
-~~从远程仓库安装插件。~~
+### 7. ~~`cargo tsn install`~~ - 已禁用
 
 **DISABLED**: 该功能已禁用，因为目前缺乏社区贡献和合适的存储方案。
 
@@ -243,32 +278,68 @@ description = "Windows platform"
 
 ## 命令行选项
 
+### `cargo tsn prepare`
+
 ```bash
 cargo tsn prepare [OPTIONS]
 
 Options:
   --input <FILE>         指定输入文件（默认：自动扫描 *.ts）
-  --output <DIR>         输出目录（默认：.）
-  --verbose              详细输出
-  --quiet                仅显示错误
+  --output <DIR>         输出目录（默认：./prepared）
+  --dry-run              预览模式（不生成文件）
+```
+
+**示例**：
+```bash
+# 生成到默认目录 (./prepared)
+cargo tsn prepare
+
+# 指定输入文件
+cargo tsn prepare --input src/api.ts
+
+# 指定输出目录
+cargo tsn prepare --output my-plugins
+
+# 预览模式
+cargo tsn prepare --dry-run
 ```
 
 ## 工作流
 
+### 方式一：使用 prepare 命令（推荐）
+
 ```
-1. 编写 TypeScript 代码
+1. 编写 TypeScript 代码（包含 declare function）
    ↓
-2. 声明 FFI 函数（declare function）
+2. cargo tsn prepare（生成插件骨架到 prepared/）
    ↓
-3. cargo tsn prepare（生成插件骨架）
+3. 检查生成的内容
    ↓
-4. 手动实现 C 函数
+4. 拷贝到 tsnp/ 目录
    ↓
-5. 编译 C 文件为 .o
+5. 手动实现 C 函数
    ↓
-6. ts-native main.ts（编译链接）
+6. 编译 C 文件为 .o
    ↓
-7. 运行测试
+7. ts-native main.ts（编译链接）
+   ↓
+8. 运行测试
+```
+
+### 方式二：使用 func 命令（交互式）
+
+```
+1. cargo tsn new my-project
+   ↓
+2. cargo tsn add some-crate
+   ↓
+3. cargo tsn func（交互式添加函数）
+   ↓
+4. 实现 C 函数
+   ↓
+5. ts-native main.ts
+   ↓
+6. 运行测试
 ```
 
 ## 与 tsnp 的区别
@@ -279,12 +350,30 @@ Options:
 | **tsnp gen** | 从 crate 生成配置 | crate 名 | 配置文件 |
 | **tsn prepare** | 从 TS 源码生成实现 | TS 文件 | C 模板 + 配置 |
 
-## 插件优先级
+## 插件优先级系统
 
-使用当前时间戳作为插件优先级，确保：
-- ✅ 唯一性（不会冲突）
-- ✅ 时间顺序（后生成的优先级更高）
-- ✅ 支持小数和负数
+### 优先级规则
+
+| 插件来源 | 默认优先级 | 说明 |
+|---------|-----------|------|
+| **开发者自定义** | **1000** | 通过 prepare/add/func 命令生成 |
+| **官方插件** | **0** | ts-native 仓库自带的 tsnp-contrib |
+
+### 设计原理
+
+- ✅ 自定义插件始终优先于官方插件
+- ✅ 避免能力冲突时选择错误的实现
+- ✅ 清晰的优先级层次
+
+### 示例
+
+```toml
+# tsnp/crypto/ts-native.toml
+[package]
+name = "tsnp-crypto"
+version = "0.1.0"
+priority = 1000  # 自定义插件默认 1000
+```
 
 ## 相关工具
 
