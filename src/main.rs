@@ -25,8 +25,8 @@ enum Commands {
     Add {
         crate_name: String,
     },
-    #[command(about = "Interactively add FFI function")]
-    Func,
+    // #[command(about = "Interactively add FFI function (DISABLED - use prepare instead)")]
+    // Func,
     // #[command(about = "Publish plugins to codeberg (DISABLED)")]
     // Publish {
     //     #[arg(long, help = "Show what would be published without actually publishing")]
@@ -44,8 +44,8 @@ enum Commands {
     Prepare {
         #[arg(long, help = "Input TypeScript file(s)")]
         input: Option<String>,
-        #[arg(long, default_value = ".", help = "Output directory")]
-        output: String,
+        #[arg(long, help = "Output directory (default: ./prepared for no args, or specified dir)")]
+        output: Option<String>,
         #[arg(long, help = "Preview mode (no files will be written)")]
         dry_run: bool,
     },
@@ -57,13 +57,15 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::New { name } => cmd_new(&name),
         Commands::Add { crate_name } => cmd_add(&crate_name),
-        Commands::Func => cmd_func(),
+        // Commands::Func => cmd_func(),  // DISABLED - use prepare instead
         // Commands::Publish { dry_run } => cmd_publish(dry_run),  // DISABLED
         Commands::List => cmd_list(),
         // Commands::Install { name, version } => cmd_install(&name, version.as_deref()),  // DISABLED
         Commands::Prepare { input, output, dry_run } => {
             let input_ref = input.as_deref();
-            prepare::cmd_prepare(input_ref, &output, dry_run)
+            // 无参时默认输出到 ./prepared 目录
+            let output_dir = output.as_deref().unwrap_or("prepared");
+            prepare::cmd_prepare(input_ref, output_dir, dry_run)
         }
     }
 }
