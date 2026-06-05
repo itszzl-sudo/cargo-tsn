@@ -382,9 +382,9 @@ priority = 1000  # 自定义插件默认 1000
 
 | 工具 | 描述 | 安装 |
 |------|------|------|
-| **ts-native** | TypeScript 到原生可执行文件编译器 | `cargo install ts-native` |
-| **tsn** | 同上，更短的名称 | `cargo install tsn` |
-| **tsnp** | 从 Rust crate 生成插件配置 | `cargo install tsnp` |
+| **[ts-native](https://github.com/itszzl-sudo/ts-native/blob/main/README.md)** | TypeScript 到原生可执行文件编译器 | `cargo install ts-native` |
+| **[tsn](https://github.com/itszzl-sudo/ts-native/blob/main/README.md)** | 同上，更短的名称 | `cargo install tsn` |
+| **[tsnp](https://github.com/itszzl-sudo/ts-native/tree/main/tsnp-contrib)** | 从 Rust crate 生成插件配置 | `cargo install tsnp` |
 
 ## 许可证
 
