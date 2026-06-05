@@ -390,7 +390,8 @@ fn generate_platform_toml(
          name = \"{}\"\n\
          os = \"{}\"\n\
          arch = [{}]\n\
-         description = \"{} platform\"\n\n",
+         description = \"{} platform\"\n\
+         author = \"ts-native user\"\n\n",
         os_name,
         plugin_name,
         os_name,
@@ -416,7 +417,7 @@ fn generate_platform_toml(
             "\"{}\" = {{\n",
             func.name
         ));
-        content.push_str(&format!("    impl_name = \"{}\",\n", c_func_name));
+        content.push_str(&format!("    impl = \"{}\",\n", c_func_name));
         content.push_str("    enabled = true,\n");
         content.push_str(&format!("    system = \"{}\",\n", system));
         content.push_str(&format!("    args = [{}],\n", args.join(", ")));
