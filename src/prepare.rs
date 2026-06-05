@@ -88,7 +88,7 @@ pub fn group_by_plugin(functions: &[FFIFunction]) -> HashMap<String, Vec<FFIFunc
 }
 
 /// 生成插件文件
-pub fn generate_plugin(plugin_name: &str, functions: &[FFIFunction], output_dir: &str) -> Result<()> {
+pub fn generate_plugin(plugin_name: &str, functions: &[FFIFunction], output_dir: &str, no_stubs: bool) -> Result<()> {
     let plugin_dir = format!("{}/tsnp/{}", output_dir, plugin_name);
     fs::create_dir_all(&plugin_dir)?;
     
@@ -102,15 +102,15 @@ pub fn generate_plugin(plugin_name: &str, functions: &[FFIFunction], output_dir:
     pb.set_message(format!("Generating {}", plugin_name));
     
     // 1. 生成 C 文件（win/linux/macos）
-    generate_c_file(&plugin_dir, plugin_name, functions, "win")?;
+    generate_c_file(&plugin_dir, plugin_name, functions, "win", no_stubs)?;
     pb.inc(1);
     pb.set_message(format!("  ✓ {}_win.c", plugin_name));
     
-    generate_c_file(&plugin_dir, plugin_name, functions, "linux")?;
+    generate_c_file(&plugin_dir, plugin_name, functions, "linux", no_stubs)?;
     pb.inc(1);
     pb.set_message(format!("  ✓ {}_linux.c", plugin_name));
     
-    generate_c_file(&plugin_dir, plugin_name, functions, "macos")?;
+    generate_c_file(&plugin_dir, plugin_name, functions, "macos", no_stubs)?;
     pb.inc(1);
     pb.set_message(format!("  ✓ {}_macos.c", plugin_name));
     
@@ -137,7 +137,7 @@ pub fn generate_plugin(plugin_name: &str, functions: &[FFIFunction], output_dir:
 }
 
 /// 生成 C 实现文件
-fn generate_c_file(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunction], platform: &str) -> Result<()> {
+fn generate_c_file(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunction], platform: &str, no_stubs: bool) -> Result<()> {
     let file_name = format!("{}_{}.c", plugin_name.replace("-", "_"), platform);
     let file_path = format!("{}/{}", plugin_dir, file_name);
     
@@ -156,23 +156,36 @@ fn generate_c_file(plugin_dir: &str, plugin_name: &str, functions: &[FFIFunction
         content.push_str("extern double js_string_new(const char* data, unsigned int len);\n");
         content.push_str("extern const char* js_string_unpack(double val);\n");
         content.push_str("extern double js_number_new(double val);\n");
-        content.push_str("extern double js_boolean_new(int val);\n\n");
+        content.push_str("extern double js_boolean_new(int val);\n");
+        content.push_str("extern double js_undefined();\n");
+        content.push_str("extern double console_log(double msg_val);\n");
+        content.push_str("extern double console_debug(double msg_val);\n");
+        content.push_str("extern double console_err(double msg_val);\n\n");
         
-        // 生成函数声明模板（注释形式，不生成实现）
-        content.push_str("// Function templates (copy and implement as needed):\n\n");
-        for func in functions {
-            content.push_str(&format!("// {}\n", "=".repeat(60)));
-            content.push_str(&format!("// {}({}) -> {}\n", func.name, 
-                func.params.iter().map(|p| format!("{}: {}", p.name, p.param_type)).collect::<Vec<_>>().join(", "),
-                func.return_type
-            ));
-            content.push_str("//\n");
-            content.push_str(&format!("// double {}({}) {{\n", func.name,
-                (0..func.params.len()).map(|i| format!("double p{}", i)).collect::<Vec<_>>().join(", ")
-            ));
-            content.push_str("//     // TODO: Implement your logic here\n");
-            content.push_str("//     return 0;\n");
-            content.push_str("// }\n\n");
+        // 生成函数实现
+        if no_stubs {
+            // 仅生成注释模板
+            content.push_str("// Function templates (copy and implement as needed):\n\n");
+            for func in functions {
+                content.push_str(&format!("// {}\n", "=".repeat(60)));
+                content.push_str(&format!("// {}({}) -> {}\n", func.name, 
+                    func.params.iter().map(|p| format!("{}: {}", p.name, p.param_type)).collect::<Vec<_>>().join(", "),
+                    func.return_type
+                ));
+                content.push_str("//\n");
+                content.push_str(&format!("// double {}({}) {{\n", func.name,
+                    (0..func.params.len()).map(|i| format!("double p{}", i)).collect::<Vec<_>>().join(", ")
+                ));
+                content.push_str("//     // TODO: Implement your logic here\n");
+                content.push_str("//     return 0;\n");
+                content.push_str("// }\n\n");
+            }
+        } else {
+            // 生成带 console 警告的桩函数
+            content.push_str("// Function implementations (stub with console warnings):\n\n");
+            for func in functions {
+                content.push_str(&generate_function_stub_with_console(func));
+            }
         }
     } else {
         // Linux/macOS 占位文件
@@ -238,7 +251,18 @@ fn generate_function_impl(func: &FFIFunction) -> String {
     }
     
     impl_str.push_str("\n");
-    impl_str.push_str("    // TODO: Implement your logic here\n");
+    impl_str.push_str("    // ⚠️ STUB: Replace with real implementation\n");
+    impl_str.push_str(&format!("    console_err(\"⚠️ {} called (stub implementation)\");\n", func.name));
+    
+    // 添加参数调试输出
+    if !func.params.is_empty() {
+        impl_str.push_str(&format!("    console_debug(\"  Parameters:\");\n"));
+        for param in &func.params {
+            impl_str.push_str(&format!("    console_debug(\"    {}: \");\n", param.name));
+            impl_str.push_str(&format!("    console_debug({});\n", param.name));
+        }
+    }
+    
     impl_str.push_str("\n");
     
     // 返回值打包（桩实现）
@@ -420,7 +444,7 @@ pub fn find_ts_files(dir: &str) -> Result<Vec<String>> {
 }
 
 /// prepare 命令主入口
-pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool) -> Result<()> {
+pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool, no_stubs: bool) -> Result<()> {
     println!("📦 Analyzing TypeScript files...");
     
     // 1. 查找 TS 文件
@@ -491,7 +515,7 @@ pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool) -> Result<(
         println!("\n⚙️  Generating plugins...\n");
         
         for (plugin_name, funcs) in &groups {
-            generate_plugin(plugin_name, funcs, output)?;
+            generate_plugin(plugin_name, funcs, output, no_stubs)?;
             println!();
         }
         
@@ -499,4 +523,106 @@ pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool) -> Result<(
     }
     
     Ok(())
+}
+
+/// 生成带 console 警告的桩函数
+fn generate_function_stub_with_console(func: &FFIFunction) -> String {
+    let mut impl_str = String::new();
+    
+    // 函数签名
+    let param_decls: Vec<String> = (0..func.params.len())
+        .map(|i| format!("double p{}", i))
+        .collect();
+    
+    impl_str.push_str(&format!("// ============================================================\n"));
+    impl_str.push_str(&format!("// {}({}) -> {}\n", 
+        func.name,
+        func.params.iter().map(|p| format!("{}: {}", p.name, p.param_type)).collect::<Vec<_>>().join(", "),
+        func.return_type
+    ));
+    impl_str.push_str(&format!("// ⚠️ STUB: Returns default value, replace with real implementation\n"));
+    impl_str.push_str(&format!("// ============================================================\n"));
+    impl_str.push_str(&format!("double {}({}) {{\n", func.name, param_decls.join(", ")));
+    
+    // 参数解包
+    for (i, param) in func.params.iter().enumerate() {
+        let param_name = format!("p{}", i);
+        let local_name = param.name.clone();
+        
+        match param.param_type.as_str() {
+            "string" => {
+                impl_str.push_str(&format!(
+                    "    const char* {} = js_string_unpack({});\n",
+                    local_name, param_name
+                ));
+            }
+            "number" => {
+                impl_str.push_str(&format!(
+                    "    double {} = {};\n",
+                    local_name, param_name
+                ));
+            }
+            "boolean" => {
+                impl_str.push_str(&format!(
+                    "    int {} = (int){};\n",
+                    local_name, param_name
+                ));
+            }
+            _ => {
+                impl_str.push_str(&format!(
+                    "    // TODO: Unpack parameter '{}' of type '{}'\n",
+                    local_name, param.param_type
+                ));
+            }
+        }
+    }
+    
+    impl_str.push_str("\n");
+    impl_str.push_str("    // ⚠️ STUB: Replace with real implementation\n");
+    impl_str.push_str(&format!("    console_err(\"⚠️ {} called (stub implementation)\");\n", func.name));
+    
+    // 添加参数调试输出
+    if !func.params.is_empty() {
+        impl_str.push_str("    console_debug(\"  Parameters:\");\n");
+        for param in &func.params {
+            impl_str.push_str(&format!("    console_debug(\"    {}: \");\n", param.name));
+            if param.param_type == "string" {
+                impl_str.push_str(&format!("    console_debug({});\n", param.name));
+            } else {
+                impl_str.push_str(&format!("    // TODO: Debug output for {}\n", param.name));
+            }
+        }
+    }
+    
+    impl_str.push_str("\n");
+    
+    // 返回值打包（桩实现）
+    match func.return_type.as_str() {
+        "string" => {
+            impl_str.push_str("    // Stub: return empty string\n");
+            impl_str.push_str("    return js_string_new(\"\", 0);\n");
+        }
+        "number" => {
+            impl_str.push_str("    // Stub: return 0\n");
+            impl_str.push_str("    return 0.0;\n");
+        }
+        "boolean" => {
+            impl_str.push_str("    // Stub: return false\n");
+            impl_str.push_str("    return 0;\n");
+        }
+        "void" => {
+            impl_str.push_str("    // Stub: void function\n");
+            impl_str.push_str("    return 0;\n");
+        }
+        _ => {
+            impl_str.push_str(&format!(
+                "    // TODO: Pack return value of type '{}'\n",
+                func.return_type
+            ));
+            impl_str.push_str("    return 0;\n");
+        }
+    }
+    
+    impl_str.push_str("}\n\n");
+    impl_str
 }

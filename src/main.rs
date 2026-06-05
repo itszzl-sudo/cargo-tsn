@@ -32,10 +32,12 @@ enum Commands {
     Prepare {
         #[arg(long, help = "Input TypeScript file(s)")]
         input: Option<String>,
-        #[arg(long, help = "Output directory (default: ./prepared for no args, or specified dir)")]
+        #[arg(long, help = "Output directory (default: ./prepare)")]
         output: Option<String>,
         #[arg(long, help = "Preview mode (no files will be written)")]
         dry_run: bool,
+        #[arg(long, help = "Disable stub generation (generate comment templates only)")]
+        no_stubs: bool,
     },
 }
 
@@ -47,11 +49,11 @@ fn main() -> Result<()> {
         Commands::Add { crate_name } => cmd_add(&crate_name),
         Commands::Func => cmd_func(),
         Commands::List => cmd_list(),
-        Commands::Prepare { input, output, dry_run } => {
+        Commands::Prepare { input, output, dry_run, no_stubs } => {
             let input_ref = input.as_deref();
             // 无参时默认输出到 ./prepare 目录
             let output_dir = output.as_deref().unwrap_or("prepare");
-            prepare::cmd_prepare(input_ref, output_dir, dry_run)
+            prepare::cmd_prepare(input_ref, output_dir, dry_run, no_stubs)
         }
     }
 }
