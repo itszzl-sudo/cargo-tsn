@@ -5,6 +5,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 
 mod publish;
+mod prepare;
 
 #[derive(Parser)]
 #[command(name = "cargo-tsn")]
@@ -39,6 +40,13 @@ enum Commands {
         #[arg(long, help = "Specific version to install")]
         version: Option<String>,
     },
+    #[command(about = "Generate C stubs from TypeScript FFI declarations")]
+    Prepare {
+        #[arg(long, help = "Input TypeScript file(s)")]
+        input: Option<String>,
+        #[arg(long, default_value = ".", help = "Output directory")]
+        output: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -51,6 +59,10 @@ fn main() -> Result<()> {
         Commands::Publish { dry_run } => cmd_publish(dry_run),
         Commands::List => cmd_list(),
         Commands::Install { name, version } => cmd_install(&name, version.as_deref()),
+        Commands::Prepare { input, output } => {
+            let input_ref = input.as_deref();
+            prepare::cmd_prepare(input_ref, &output)
+        }
     }
 }
 
@@ -88,7 +100,7 @@ crate-type = ["cdylib"]
     fs::write(format!("{}/main.ts", name), main_ts).context("Failed to write main.ts")?;
     
     println!("✅ Created: {}", name);
-    println!("   cd {} && tsn main.ts", name);
+    println!("   cd {} && ts-native main.ts", name);
     
     Ok(())
 }

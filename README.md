@@ -1,446 +1,318 @@
-# cargo-tsn
+# ts-native
 
-**Project manager for the tsn toolchain.**
+TypeScript to native executable compiler.
 
-[![Crates.io](https://img.shields.io/crates/v/cargo-tsn.svg)](https://crates.io/crates/cargo-tsn)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/itszzl-sudo/cargo-tsn)
-
----
-
-## Installation
+## Quick Start
 
 ```bash
-cargo install cargo-tsn
+# Install
+cargo install ts-native
+
+# Compile and run (output: main.exe in same directory as main.ts)
+ts-native main.ts
+./main.exe
 ```
 
----
+## What is ts-native
 
-## Overview
+A compiler that converts TypeScript to native executable (8-23KB), no Node.js required.
 
-The **tsn toolchain** consists of three tools:
+Also published as **`tsn`** (`cargo install tsn`) — same compiler, shorter name.
 
-| Tool | Purpose | Repository |
-|------|---------|------------|
-| **tsn** | TypeScript to native compiler | [tsn](https://github.com/itszzl-sudo/tsn) |
-| **tsnp** | Plugin configuration generator | [tsiot/tsnp](https://github.com/itszzl-sudo/tsiot) |
-| **cargo-tsn** | Project manager | [cargo-tsn](https://github.com/itszzl-sudo/cargo-tsn) |
+## Key Features
 
-**Workflow:**
+- **Tiny executables**: 8-23KB native binaries
+- **No runtime**: Zero dependencies, no Node.js
+- **FFI integration**: Call C/Rust functions directly
+- **NaN-boxing**: Efficient value representation
+- **Syntax pre-check**: swc-based AST analysis detects unsupported syntax before compilation
+- **Standalone**: No project management tools required
+
+## Architecture
+
 ```
-cargo-tsn (project manager)
-    ↓ creates/manages
-tsn project (TypeScript + Rust FFI)
-    ↓ compiles with
-tsn (compiler)
-    ↓ uses
-tsnp (plugins)
+TypeScript source
+      ↓
+  Syntax Check (swc)
+      ↓
+    Lexer
+      ↓
+    Parser
+      ↓
+     HIR (High-level IR)
+      ↓
+    Codegen (Cranelift)
+      ↓
+    Object file (.o)
+      ↓
+    Linker (.exe)
+      ↓
+Native executable
 ```
 
----
+## Value Representation
 
-## Commands
+All JavaScript values fit in 64 bits using NaN-boxing:
 
-### `cargo tsn new <name>`
+```
+STRING_TAG  = 0x7FFC_0000_0000_0000
+ARRAY_TAG   = 0x7FFB_0000_0000_0000
+OBJECT_TAG  = 0x7FFA_0000_0000_0000
+UNDEFINED   = 0x7FFF_8000_0000_0001
+NULL        = 0x7FFF_8000_0000_0002
+TRUE        = 0x7FFF_0000_0000_0001
+FALSE       = 0x7FFF_0000_0000_0000
+```
 
-Create a new tsn project.
+## C Runtime
+
+ts-native includes a monolithic C runtime (`runtime_nocrt.c`) with:
+- String operations (js_string_new, js_string_concat, js_number_to_string)
+- Array operations (js_array_new, js_array_push, js_array_get, js_array_set)
+- Object operations (js_object_new, js_object_get, js_object_set)
+- Math operators (js_add, js_sub, js_mul, js_div, js_mod)
+- Comparison operators (js_eq, js_ne, js_lt, js_le, js_gt, js_ge)
+- Print operations (js_print, js_print_space, js_print_newline)
+- Math functions (js_math_floor, js_math_ceil, js_math_random, js_math_sin, ...)
+- Date/JSON (js_date_now, js_json_stringify, js_json_parse)
+- Exception handling (js_try_begin, js_try_end, js_throw, js_get_exception)
+- FFI stubs (argc, argv, now_ms, sleep, http_get, file_append, ...)
+
+## Supported TypeScript
+
+| 语法 | 状态 | 示例 | 分类 |
+|------|------|------|------|
+| function declaration | ✅ | `function foo() {}` | 函数 |
+| function expression | ✅ | `let f = function() {}` | 函数 |
+| arrow function | ✅ | `(x) => x + 1` | 函数 |
+| return | ✅ | `return x;` | 控制流 |
+| if/else | ✅ | `if (x) {} else {}` | 控制流 |
+| while | ✅ | `while (x) {}` | 控制流 |
+| for | ✅ | `for (let i=0; i<n; i++) {}` | 控制流 |
+| for...in | ✅ | `for (let k in obj) {}` | 控制流 |
+| for...of | ✅ | `for (let x of arr) {}` | 控制流 |
+| break/continue | ✅ | `break; continue;` | 控制流 |
+| try/catch/finally | ✅ | `try {} catch(e) {} finally {}` | 控制流 |
+| throw | ✅ | `throw new Error()` | 控制流 |
+| ternary (?:) | ✅ | `x ? a : b` | 表达式 |
+| let/const/var | ✅ | `let x = 1; const y = 2;` | 声明 |
+| assignment | ✅ | `x = 1; x += 2;` | 表达式 |
+| binary operators | ✅ | `+, -, *, /, %, ==, <, >, &&, ||` | 表达式 |
+| unary operators | ✅ | `-x, !x, typeof x` | 表达式 |
+| increment/decrement | ✅ | `x++; x--;` | 表达式 |
+| string literal | ✅ | `"hello", 'world'` | 字面量 |
+| template literal | ✅ | `` `hello ${name}` `` | 字面量 |
+| number literal | ✅ | `42, 3.14, 0xFF` | 字面量 |
+| boolean literal | ✅ | `true, false` | 字面量 |
+| null/undefined | ✅ | `null, undefined` | 字面量 |
+| array literal | ✅ | `[1, 2, 3]` | 字面量 |
+| object literal | ✅ | `{ key: value }` | 字面量 |
+| property access | ✅ | `obj.key, obj[0]` | 表达式 |
+| function call | ✅ | `foo(1, 2)` | 表达式 |
+| method call | ✅ | `obj.method()` | 表达式 |
+| import declaration | ✅ | `import { x } from 'mod'` | 模块 |
+| export declaration | ✅ | `export function foo() {}` | 模块 |
+| declare function | ✅ | `declare function foo(): void;` | TS扩展 |
+| interface (declare only) | ✅ | `interface Config { x: number }` | TS扩展 |
+| type annotation | ✅ | `let x: number = 1;` | TS扩展 |
+| as type assertion | ✅ | `x as number` | TS扩展 |
+| typeof operator | ✅ | `typeof x` | 表达式 |
+| console.log/print | ✅ | `console.log(x), print(x)` | 内置 |
+| Math methods | ✅ | `Math.sin, Math.random, ...` | 内置 |
+| JSON.parse/stringify | ✅ | `JSON.parse(s), JSON.stringify(o)` | 内置 |
+| Date.now | ✅ | `Date.now()` | 内置 |
+| parseInt/parseFloat | ✅ | `parseInt(s)` | 内置 |
+| class | ❌ | `class Foo {}` | 面向对象 |
+| class inheritance | ❌ | `class Bar extends Foo {}` | 面向对象 |
+| decorator | ❌ | `@decorator class Foo {}` | 面向对象 |
+| enum | ❌ | `enum E { A, B }` | 声明 |
+| async/await | ❌ | `async function f() { await p }` | 异步 |
+| generator | ❌ | `function* g() { yield 1 }` | 函数 |
+| Promise | ❌ | `new Promise((r) => r(1))` | 异步 |
+| namespace | ❌ | `namespace N { }` | TS扩展 |
+| abstract class | ❌ | `abstract class A {}` | 面向对象 |
+| with statement | ❌ | `with (obj) { }` | 遗留 |
+| labeled statement | ❌ | `label: for (;;) { break label; }` | 控制流 |
+| switch | ❌ | `switch(x) { case 1: break; }` | 控制流 |
+| do...while | ❌ | `do {} while (x)` | 控制流 |
+| new expression | ❌ | `new Foo()` | 表达式 |
+| delete/void/in | ❌ | `delete obj.key; void 0; x in obj` | 表达式 |
+| spread/rest | ❌ | `...args, fn(...a)` | 表达式 |
+| destructuring | ❌ | `let { a, b } = obj;` | 声明 |
+| default param | ❌ | `function f(x = 1) {}` | 函数 |
+| computed property | ❌ | `{ [key]: value }` | 表达式 |
+| optional chaining | ❌ | `obj?.key?.method()` | 表达式 |
+| nullish coalescing | ❌ | `x ?? y` | 表达式 |
+| regex literal | ❌ | `/pattern/flags` | 字面量 |
+| satisfies operator | ❌ | `x as const satisfies T` | TS扩展 |
+| type alias (body) | ❌ | `type T = { a: number }` | TS扩展 |
+
+## CLI Options
+
+```
+ts-native <input.ts> [-o <output>] [--skip-check] [--gen-syntax-md]
+
+  -o, --output <file>    Output file (default: <input>.exe in input directory)
+  --skip-check           Skip syntax pre-check (may cause compile errors)
+  --gen-syntax-md        Print syntax support list as Markdown table
+```
+
+## Syntax Pre-check
+
+ts-native uses **swc** to parse TypeScript into an AST and detect unsupported syntax **before** compilation. This provides clear error messages instead of cryptic compile failures:
 
 ```bash
-cargo tsn new my-project
-cd my-project
+$ ts-native test.ts
+❌ 检测到不支持的语法:
+   第 1 行: class (ts-native 暂不支持)
+
+提示: 使用 --skip-check 跳过检查（可能导致编译错误）
 ```
-
-**Generated structure:**
-```
-my-project/
-├── Cargo.toml       # Rust project configuration
-├── src/
-│   └── lib.rs       # FFI functions (user writes here)
-├── main.ts          # TypeScript entry point
-└── tsnp/            # Plugin configurations
-```
-
-**Cargo.toml:**
-```toml
-[package]
-name = "my-project"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-
-[dependencies]
-```
-
-**src/lib.rs:**
-```rust
-// Export FFI functions here
-// Example:
-// #[no_mangle]
-// pub extern "C" fn my_func() -> i32 { 0 }
-```
-
----
-
-### `cargo tsn add <crate>`
-
-Add a Rust crate dependency and generate plugin configuration.
-
-```bash
-cargo tsn add regex
-```
-
-**What it does:**
-1. Runs `cargo add <crate>` to download the dependency
-2. Fetches published tsnps from Codeberg and displays them
-3. Prompts you to select an existing tsnp or create a new one
-4. Runs `tsnp gen <crate>` to generate plugin configuration
-5. Places output in `tsnp/<crate>/`
-
-**Interactive selection:**
-```
-📦 Published tsnps available:
-  [1] regex v0.2.1 (published: 2026-05-27)
-  [2] math v0.1.0 (published: 2026-05-26)
-  [n] Create new tsnp for regex
-[q] Cancel
-
-Select an existing tsnp or create new: 
-```
-
-**Generated files:**
-```
-tsnp/<crate>/
-├── ts-native.toml    # Function mapping configuration
-├── index.d.ts        # TypeScript type definitions
-└── README.md         # Usage documentation
-```
-
----
-
-### `cargo tsn func`
-
-Interactively add FFI functions.
-
-```bash
-cargo tsn func
-```
-
-**Interactive flow:**
-```
-Current directory: .
-
-Select crate:
-[1] regex      (tsnp/regex/)
-[2] math       (tsnp/math/)
-[q] Quit
-Select: 1
-
-regex selected.
-
-Function name (or 'q'): add
-Parameters (e.g., 'a: i32, b: i32'): a: i32, b: i32
-Return type (e.g., 'i32'): i32
-
-✅ Added to src/lib.rs
-✅ Updated tsnp/regex/ts-native.toml
-
-Function name (or 'q'): q
-
-Done. 1 FFI function(s) added.
-```
-
-**What gets generated:**
-
-1. **src/lib.rs** - FFI function stub:
-```rust
-#[no_mangle]
-pub extern "C" fn add(a: i32, b: i32) -> i32 {
-    // TODO: implement
-    0 as i32
-}
-```
-
-2. **tsnp/\<crate\>/ts-native.toml** - Function mapping:
-```toml
-[functions]
-"add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
-```
-
----
-
-### `cargo tsn publish`
-
-Publish plugins to Codeberg repository.
-
-```bash
-cargo tsn publish
-```
-
-**Dry-run mode:**
-```bash
-cargo tsn publish --dry-run
-```
-
-**Environment Variables:**
-```bash
-# Required: Your Codeberg API token
-export CODEBERG_TOKEN="your-api-token-here"
-
-# Optional: Customize target repository
-export CODEBERG_USER="tsnp"          # Default: tsnp
-export CODEBERG_REPO="tsnp"          # Default: tsnp
-export CODEBERG_API="https://codeberg.org/api/v1"  # Default: Codeberg API
-export CODEBERG_AUTHOR="your-name"   # Default: tsnp
-```
-
-**How to get a Codeberg API token:**
-1. Go to https://codeberg.org/user/settings/applications
-2. Generate a new token with `repo` permissions
-3. Set it as environment variable
-
-**Interactive flow:**
-```
-Publishing plugins to codeberg.org
-Target: https://codeberg.org/tsnp/tsnp
-
-Available plugins:
-[1] regex
-[2] math
-[a] Publish all
-[q] Cancel
-
-Select: a
-
-[1/2] Publishing regex...
-   Version: 0.1.0, Author: tsnp
-   Files: 3
-   Creating release...
-   Uploading regex-0.1.0.zip...
-   Published: https://codeberg.org/tsnp/tsnp/releases/tag/regex-0.1.0
-✅ Published regex successfully.
-
-📊 Summary: 1 succeeded, 0 failed
-```
-
----
-
-### `cargo tsn list`
-
-List local plugins in the current project.
-
-```bash
-cargo tsn list
-```
-
-**Output:**
-```
-Listing local plugins:
-  - regex v0.1.0
-  - math v0.1.0
-```
-
----
-
-### `cargo tsn install <name>`
-
-Install a published plugin from Codeberg.
-
-```bash
-cargo tsn install regex
-```
-
-**Install specific version:**
-```bash
-cargo tsn install regex --version 0.2.1
-```
-
-**What it does:**
-1. Fetches plugin from Codeberg releases
-2. Extracts to `tsnp/<name>/`
-3. Updates `Cargo.toml` with dependency
-
----
-
-## Complete Workflow
-
-### Basic Example
-
-```bash
-# 1. Create project
-cargo tsn new my-project
-cd my-project
-
-# 2. Add dependencies
-cargo tsn add regex
-
-# 3. Add FFI functions interactively
-cargo tsn func
-
-# 4. Implement FFI functions (edit src/lib.rs)
-# Example:
-# #[no_mangle]
-# pub extern "C" fn add(a: i32, b: i32) -> i32 {
-#     a + b
-# }
-
-# 5. Edit main.ts
-# function main() {
-#     print(add(1, 2));
-#     return 0;
-# }
-
-# 6. Compile
-tsn main.ts
-
-# 7. Run
-./a.exe  # Output: 3
-```
-
----
-
-### Publishing Example
-
-```bash
-# 1. Create and develop plugin
-cargo tsn new my-plugin
-cd my-plugin
-cargo tsn add some-crate
-cargo tsn func
-
-# 2. Set up Codeberg token
-export CODEBERG_TOKEN="your-token"
-
-# 3. Publish
-cargo tsn publish
-
-# 4. Others can now install
-cargo tsn install my-plugin
-```
-
----
-
-## Type Mapping
-
-When using `cargo tsn func`, Rust types are automatically mapped to TypeScript types:
-
-| Rust Type | TypeScript Type |
-|-----------|-----------------|
-| i8, u8, i16, u16, i32, u32, i64, u64, isize, usize | number |
-| f32, f64 | number |
-| *const c_char, *mut c_char | string |
-| &str | string |
-| *const T, *mut T | number (pointer) |
-| () | void |
-
----
 
 ## Project Structure
 
-A complete tsn project:
+### Minimal Project (No Config Files)
 
 ```
 my-project/
-├── Cargo.toml           # Rust configuration
-├── Cargo.lock           # Dependency lock file
-├── src/
-│   └── lib.rs           # FFI functions
-├── main.ts              # TypeScript code
-├── tsnp/                # Plugin configurations
-│   ├── regex/
-│   │   ├── ts-native.toml
-│   │   ├── index.d.ts
-│   │   └── README.md
-│   └── math/
-│       ├── ts-native.toml
-│       ├── index.d.ts
-│       └── README.md
-├── a.o                  # Compiled object file
-└── a.exe                # Native executable
+└── main.ts          # Only file needed!
 ```
+
+**Compile**:
+```bash
+ts-native main.ts    # → main.exe (same directory)
+```
+
+### FFI Project (With Extensions)
+
+```
+my-project/
+├── main.ts          # TypeScript source
+├── main.ts.toml     # Per-file dependency declaration (optional)
+└── tsnp/            # FFI extensions (optional)
+    └── my-ext/
+        ├── ts-native.toml    # Extension config
+        └── index.d.ts        # Type definitions
+```
+
+### Per-file Dependencies (`<input>.ts.toml`)
+
+Each TypeScript file can have a companion `<filename>.ts.toml` that declares which tsnp extensions it depends on:
+
+**`main.ts.toml`**:
+```toml
+[dependencies]
+tsnp = ["http", "fs", "cli"]
+```
+
+- If `<input>.ts.toml` exists → only the listed extensions are loaded
+- If `<input>.ts.toml` does **not** exist → all tsnp extensions are loaded (backward-compatible)
+- `tsnp` tool auto-generates this file when creating plugins
 
 ---
 
-## ts-native.toml Format
+## FFI Extensions
+
+### When Do You Need FFI?
+
+**Need FFI**:
+- ✅ Call C/Rust functions
+- ✅ Use system libraries (curl, ssl, etc.)
+- ✅ Access OS APIs (socket, file, etc.)
+
+**Don't Need FFI**:
+- ❌ Pure TypeScript logic
+- ❌ Only use built-in runtime (js_print, js_add, etc.)
+- ❌ No external dependencies
+
+### ts-native.toml Example
 
 ```toml
 [package]
-name = "tsnp-regex"
+name = "tsnp-http"
 version = "0.1.0"
-tsnpVersion = "0.1.0"
 
 [functions]
-"add" = { args = ["number", "number"], ret = "number", impl_name = "add" }
-"multiply" = { args = ["number", "number"], ret = "number", impl_name = "multiply" }
+"http_get" = { args = ["string"], ret = "string", impl_name = "http_get" }
+"http_post" = { args = ["string", "string"], ret = "string", impl_name = "http_post" }
 
 [link]
-lib = "regex"
+libs = ["curl", "ssl", "crypto"]
 ```
 
-**Version Fields:**
-- `version` - The original Rust crate version
-- `tsnpVersion` - The tsnp plugin version (independent versioning)
+### Using FFI in TypeScript
+
+```typescript
+// Declare FFI function
+declare function http_get(url: string): string;
+
+// Use it
+let response = http_get("https://example.com");
+print(response);
+```
+
+### Auto-generating `<input>.ts.toml`
+
+When you use `tsnp` to generate a plugin, it automatically creates or updates the `.ts.toml` dependency file for all `.ts` files in the current directory:
+
+```bash
+$ cargo tsnp gen my-crate
+  ✓ ts-native.toml
+  ✓ index.d.ts
+  ✓ main.ts.toml      # auto-generated
+```
+
+### Official Contrib Plugins (`tsnp-contrib/`)
+
+ts-native ships with official plugins in `tsnp-contrib/`:
+
+| Plugin | Description |
+|--------|-------------|
+| `cli` | Command-line arguments (argc, argv) |
+| `fs` | File system operations (file_append, file_exists) |
+| `metric-api` | Metric API client (http_get) |
+| `dom-iot` | DOM runtime for IoT |
+| `mqtt` | MQTT protocol support |
+
+Copy plugins from `tsnp-contrib/` to your project's `tsnp/` directory to use them.
 
 ---
 
-## Notes
+## Examples
 
-### Crates without FFI functions
+See `examples/` directory for complete projects:
 
-Most Rust crates don't export FFI functions (`#[no_mangle] extern "C"`). When running `cargo tsn add <crate>`:
-
-- Dependency is downloaded
-- Empty plugin configuration is generated
-- User must write FFI wrappers in `src/lib.rs`
-
-### Writing FFI wrappers
-
-To use a crate without FFI functions, wrap its functionality:
-
-```rust
-use some_crate::SomeType;
-
-#[no_mangle]
-pub extern "C" fn my_wrapper(arg: i32) -> i32 {
-    // Call crate functionality
-    let result = SomeType::new(arg);
-    result.compute()
-}
-```
-
-Then run:
-```bash
-cargo tsn func
-# Add the wrapper function to ts-native.toml
-```
-
-### Running from correct directory
-
-`cargo tsn func` must be run from the project root (where `tsnp/` directory exists).
-
-```bash
-cd my-project
-cargo tsn func  # ✅ Correct
-
-cd my-project/src
-cargo tsn func  # ❌ Error: tsnp/ not found
-```
+- **metric-collector**: Monitoring CLI with FFI (http, fs, cli)
 
 ---
+
+## Source Structure
+
+```
+ts-native/
+├── src/
+│   ├── main.rs          # CLI entry point
+│   ├── ts_parser.rs     # TypeScript lexer & parser
+│   ├── codegen.rs       # Cranelift code generation
+│   ├── syntax_check.rs  # swc-based syntax pre-check
+│   ├── linker.rs        # Native linker
+│   ├── extension.rs     # Plugin loading
+│   ├── config.rs        # Configuration
+│   ├── runtime.rs       # Runtime helpers
+│   └── pe_builder.rs    # PE executable builder
+├── tsnp-contrib/        # Official contrib plugins
+├── runtime_nocrt.c      # Monolithic C runtime
+├── start_nocrt.c        # nocrt entry point (_start)
+└── Cargo.toml
+```
 
 ## Related Tools
 
-- **tsn** - TypeScript native compiler: [GitHub](https://github.com/itszzl-sudo/tsn)
-- **tsnp** - Plugin generator (in tsn repository)
-
----
-
-## Repository
-
-- **GitHub**: https://github.com/itszzl-sudo/cargo-tsn
-- **Issues**: https://github.com/itszzl-sudo/cargo-tsn/issues
-
----
+| Tool | Description | Install |
+|------|-------------|---------|
+| **tsn** | Same as ts-native, shorter name | `cargo install tsn` |
+| **tsnp** | Auto-generate FFI plugin configs from Rust crates | `cargo install tsnp` |
+| **cargo-tsn** | Project manager for ts-native | `cargo install cargo-tsn` |
 
 ## License
 
