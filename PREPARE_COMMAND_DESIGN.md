@@ -40,12 +40,12 @@ $ cargo tsn prepare
   - http_get(string) → string
 
 ⚙️  Generating C implementations...
-  ✓ tsnp/crypto/crypto_win.c
-  ✓ tsnp/crypto/ts-native.toml
-  ✓ tsnp/crypto/ts-native-win.toml
-  ✓ tsnp/http/http_win.c
-  ✓ tsnp/http/ts-native.toml
-  ✓ tsnp/http/ts-native-win.toml
+  ✓ templates/tsnp/crypto/crypto_win.c
+  ✓ templates/tsnp/crypto/ts-native.toml
+  ✓ templates/tsnp/crypto/ts-native-win.toml
+  ✓ templates/tsnp/http/http_win.c
+  ✓ templates/tsnp/http/ts-native.toml
+  ✓ templates/tsnp/http/ts-native-win.toml
 
 ✅ Prepared 2 plugins with stub implementations
 ```
@@ -342,9 +342,9 @@ $ cargo tsn prepare
 ⚙️  Generating plugins...
 
 crypto ████████████████████████████████ 4/4 
-  ✓ tsnp/crypto/crypto_win.c
-  ✓ tsnp/crypto/ts-native.toml
-  ✓ tsnp/crypto/ts-native-win.toml
+  ✓ templates/tsnp/crypto/crypto_win.c
+  ✓ templates/tsnp/crypto/ts-native.toml
+  ✓ templates/tsnp/crypto/ts-native-win.toml
   ✓ tsnp/crypto/index.d.ts
 
 http ████████████████████████████ 3/3 

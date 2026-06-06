@@ -261,10 +261,7 @@ cargo-tsn/
 | **[tsnp-contrib](https://github.com/itszzl-sudo/tsnp-contrib)** | 官方插件集合 | Git 子模块 |
 
 ---
-
-## 许可证
-
-MITsn prepare --input src/api.ts
+cargo tsn prepare --input src/api.ts
 
 # 指定输出目录
 cargo tsn prepare --output my-plugins
@@ -282,10 +279,10 @@ cargo tsn prepare --dry-run
    ↓
 2. cargo tsn prepare（生成插件骨架到 prepare/）
    ↓
-3. 在 prepare/tsnp/ 中编辑、选择需要的插件
+3. 在 `prepare/templates/tsnp/` 中查看官方插件模板
    ↓
-4. cp -r prepare/tsnp/crypto tsnp/     # 只拷贝需要的
-   cp -r prepare/tsnp/http tsnp/      # 选择性拷贝
+4. cp -r prepare/templates/tsnp/crypto tsnp/     # 只拷贝需要的
+   cp -r prepare/templates/tsnp/http tsnp/      # 选择性拷贝
    ↓
 5. 手动实现 C 函数
    ↓
