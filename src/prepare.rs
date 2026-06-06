@@ -90,8 +90,17 @@ impl PluginDetector {
     
     /// 检查成员表达式（如 fs.writeFileSync）
     fn check_member_expression(&mut self, member: &MemberExpr) {
+        // 检查属性部分（方法名）
         if let MemberProp::Ident(prop) = &member.prop {
             self.check_function_name(&prop.sym);
+        }
+        
+        // 递归检查对象部分（处理 obj.prop.method() 的情况）
+        if let Expr::Member(inner) = member.obj.as_ref() {
+            self.check_member_expression(inner);
+        } else if let Expr::Ident(obj) = member.obj.as_ref() {
+            // 也检查对象名（如 fs、crypto、http）
+            self.check_function_name(&obj.sym);
         }
     }
 }
@@ -426,21 +435,58 @@ fn generate_plugins_from_groups(
     Ok(())
 }
 
+/// 使用 AST 检测是否包含 main 函数
+fn has_main_function(ts_file: &str) -> Result<bool> {
+    let content = fs::read_to_string(ts_file)
+        .context(format!("Failed to read file: {}", ts_file))?;
+    
+    let cm: Arc<SourceMap> = Default::default();
+    let fm = cm.new_source_file(
+        FileName::Real(ts_file.into()).into(),
+        content,
+    );
+    
+    let lexer = Lexer::new(
+        Syntax::Typescript(TsSyntax {
+            tsx: false,
+            decorators: false,
+            dts: false,
+            no_early_errors: false,
+            disallow_ambiguous_jsx_like: false,
+        }),
+        EsVersion::Es2020,
+        StringInput::from(&*fm),
+        None,
+    );
+    
+    let mut parser = Parser::new_from(lexer);
+    let module = parser.parse_module()
+        .map_err(|e| anyhow::anyhow!("Failed to parse {}: {:?}", ts_file, e))?;
+    
+    struct MainDetector { found: bool }
+    
+    impl Visit for MainDetector {
+        fn visit_fn_decl(&mut self, decl: &FnDecl) {
+            if decl.ident.sym == "main" {
+                self.found = true;
+            }
+        }
+    }
+    
+    let mut detector = MainDetector { found: false };
+    module.visit_with(&mut detector);
+    
+    Ok(detector.found)
+}
+
 /// 生成 .ts.toml 文件（按文件分析插件需求）
 fn generate_ts_toml(ts_files: &[String], all_groups: &HashMap<String, Vec<FFIFunction>>, output: &str) -> Result<()> {
     use std::path::Path;
     
     // 只为包含 main 函数的 TS 文件生成 .ts.toml
     for ts_file in ts_files {
-        let content = fs::read_to_string(ts_file)
-            .context(format!("Failed to read file: {}", ts_file))?;
-        
-        // 检查是否包含 main 函数
-        let has_main = content.contains("function main") 
-            || content.contains("export function main")
-            || content.contains("const main")
-            || content.contains("let main")
-            || content.contains("var main");
+        // 使用 AST 检测是否包含 main 函数
+        let has_main = has_main_function(ts_file).unwrap_or(false);
         
         if !has_main {
             continue;
