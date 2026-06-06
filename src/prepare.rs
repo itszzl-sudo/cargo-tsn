@@ -30,6 +30,10 @@ fn build_api_plugin_map() -> HashMap<String, String> {
     map.insert("fs_read".to_string(), "fs".to_string());
     map.insert("fs_writeFile".to_string(), "fs".to_string());
     map.insert("fs_readFile".to_string(), "fs".to_string());
+    map.insert("file_append".to_string(), "fs".to_string());
+    map.insert("file_exists".to_string(), "fs".to_string());
+    map.insert("file_read".to_string(), "fs".to_string());
+    map.insert("file_write".to_string(), "fs".to_string());
     
     // 加密
     map.insert("sha256".to_string(), "crypto".to_string());
@@ -58,11 +62,17 @@ fn build_api_plugin_map() -> HashMap<String, String> {
     // 命令行
     map.insert("cli_args".to_string(), "cli".to_string());
     map.insert("cli_parse".to_string(), "cli".to_string());
+    map.insert("argc".to_string(), "cli".to_string());
+    map.insert("argv".to_string(), "cli".to_string());
     
     // 定时器
     map.insert("sleep".to_string(), "timer".to_string());
     map.insert("setTimeout".to_string(), "timer".to_string());
     map.insert("setInterval".to_string(), "timer".to_string());
+    map.insert("now_ms".to_string(), "timer".to_string());
+    map.insert("now_us".to_string(), "timer".to_string());
+    map.insert("timer_now".to_string(), "timer".to_string());
+    map.insert("timer_sleep".to_string(), "timer".to_string());
     
     map
 }
@@ -487,8 +497,8 @@ fn has_main_function(ts_file: &str) -> Result<bool> {
     Ok(detector.found)
 }
 
-/// 生成 .ts.toml 文件（为每个包含 main 函数的 TS 文件生成依赖声明）
-fn generate_ts_toml(ts_files: &[String], output: &str) -> Result<()> {
+/// 生成 .ts.toml 文件（为每个包含 main 函数的 TS 文件生成依赖声明，输出到项目根目录）
+fn generate_ts_toml(ts_files: &[String], _output: &str) -> Result<()> {
     use std::path::Path;
     
     // 为每个包含 main 函数的 TS 文件生成 .ts.toml
@@ -507,8 +517,10 @@ fn generate_ts_toml(ts_files: &[String], output: &str) -> Result<()> {
         let file_stem = path.file_stem()
             .ok_or_else(|| anyhow::anyhow!("Invalid file name: {}", ts_file))?;
         
+        // 生成到 TS 文件所在目录（项目根目录），而非 prepare/ 目录
+        let ts_dir = path.parent().unwrap_or(Path::new("."));
         let toml_name = format!("{}.ts.toml", file_stem.to_string_lossy());
-        let toml_path = Path::new(output).join(&toml_name);
+        let toml_path = ts_dir.join(&toml_name);
         
         // 过滤出这个文件需要的插件
         let plugins: Vec<String> = file_plugins.into_iter()
@@ -535,9 +547,9 @@ fn generate_ts_toml(ts_files: &[String], output: &str) -> Result<()> {
             .context(format!("Failed to write {}", toml_path.display()))?;
         
         if plugins.is_empty() {
-            println!("  ✓ {} (no plugins)", toml_name);
+            println!("  ✓ {} (project root, no plugins)", toml_name);
         } else {
-            println!("  ✓ {}", toml_name);
+            println!("  ✓ {} (project root)", toml_name);
         }
     }
     

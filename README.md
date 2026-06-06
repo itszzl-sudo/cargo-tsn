@@ -191,7 +191,24 @@ git submodule status
 - `cargo tsn prepare` 会分析你的代码使用了哪些插件 API
 - 官方插件（http, fs, crypto 等）直接从 `tsnp-contrib/` 子模块拷贝
 - 不需要手动编写 `declare function`，AST 分析会自动检测函数调用
-- `.ts.toml` 文件会自动生成，声明项目依赖哪些插件
+- `.ts.toml` 文件会自动生成到**项目根目录**（与 TS 文件同级）
+
+### 编译注意事项
+
+**MSVC 编译插件**：
+```bash
+# 编译插件时需要禁用安全检查（/GS-）
+cl.exe /c /GS- /Fo:tsnp\http\http_win.o tsnp\http\http_win.c
+```
+
+**运行时依赖**：
+```bash
+# 需要拷贝 C 运行时启动库到项目目录
+cp /path/to/runtime_nocrt.o .
+cp /path/to/start_nocrt.o .
+```
+
+这两个文件可以从 ts-native 仓库根目录获取。
 
 ### 插件优先级
 
