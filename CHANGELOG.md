@@ -100,6 +100,7 @@
 ### Removed
 
 - `cargo tsn add` - 移除（用户应直接使用 `cargo add`）
+- `cargo tsn func` - 移除（已被 `cargo tsn prepare` 替代，AST 分析更智能）
 
 ---
 

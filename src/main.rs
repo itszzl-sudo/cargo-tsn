@@ -22,9 +22,6 @@ enum Commands {
         #[arg(help = "Project name")]
         name: String,
     },
-    #[command(about = "Interactively add FFI function to existing plugin")]
-    #[command(long_about = "Interactively add FFI function to an existing plugin.\n\nThis command provides a wizard to:\n1. Select an existing plugin from tsnp/\n2. Enter function name, parameters, and return type\n3. Automatically generate the FFI function stub\n\nExample:\n  cargo tsn func\n\nNote: This is for adding individual functions to existing plugins.\nFor generating plugins from TypeScript source, use 'cargo tsn prepare' instead.")]
-    Func,
     #[command(about = "List available local plugins")]
     #[command(long_about = "List available local plugins from tsnp/ and tsnp-contrib/.\n\nShows:\n- Developer plugins (tsnp/) with priority 1000\n- Official plugins (tsnp-contrib/) with priority 0\n\nExample:\n  cargo tsn list")]
     List,
@@ -47,7 +44,6 @@ fn main() -> Result<()> {
     
     match cli.command {
         Commands::New { name } => cmd_new(&name),
-        Commands::Func => cmd_func(),
         Commands::List => cmd_list(),
         Commands::Prepare { input, output, dry_run, no_stubs } => {
             let input_ref = input.as_deref();
@@ -134,6 +130,7 @@ crate-type = ["cdylib"]
     Ok(())
 }
 
+#[allow(dead_code)]
 fn cmd_func() -> Result<()> {
     println!("Current directory: .");
     

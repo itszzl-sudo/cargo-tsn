@@ -296,20 +296,18 @@ cargo tsn prepare --dry-run
 8. 运行测试
 ```
 
-### 方式二：使用 func 命令（交互式）
+### 方式二：手动创建插件
 
 ```
 1. cargo tsn new my-project
    ↓
-2. cargo add some-crate （添加 Rust crate）
+2. 手动在 tsnp/ 目录创建插件
    ↓
-3. cargo tsn func（交互式添加 FFI 函数）
+3. 编写 C FFI 函数
    ↓
-4. 实现 C 函数
+4. ts-native main.ts
    ↓
-5. ts-native main.ts
-   ↓
-6. 运行测试
+5. 运行测试
 ```
 
 ## 与 tsnp 的区别
@@ -329,7 +327,7 @@ cargo tsn prepare --dry-run
 
 | 插件来源 | 默认优先级 | 说明 |
 |---------|-----------|------|
-| **开发者自定义** | **1000** | 通过 prepare/func 命令生成 |
+| **开发者自定义** | **1000** | 通过 prepare 命令生成或手动创建 |
 | **官方插件** | **0** | ts-native 仓库自带的 tsnp-contrib |
 
 ### 设计原理
