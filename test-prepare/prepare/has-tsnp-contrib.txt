@@ -6,7 +6,7 @@ These plugins are already implemented. To use them:
 
 ## Available Plugins
 
-- http
-- os
-- fs
 - crypto
+- os
+- http
+- fs

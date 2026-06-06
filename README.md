@@ -1,6 +1,6 @@
 # cargo-tsn
 
-**ts-native 项目管理工具** - 从 TypeScript 源码自动生成 FFI 插件骨架
+**ts-native 项目管理工具** - 插件生成、依赖管理、项目脚手架
 
 ## 快速开始
 
@@ -19,194 +19,96 @@ git submodule update --init --recursive
 cargo tsn new my-project
 cd my-project
 
-# 编写 TypeScript 代码（包含 declare function）
-# 然后生成 FFI 插件骨架
+# 编写 TypeScript 代码
 cargo tsn prepare
 
-# 在 prepare/ 中编辑、选择需要的插件
-# 官方插件：从 tsnp-contrib/ 拷贝
-cp -r ../tsnp-contrib/http tsnp/        # 官方 HTTP 插件
-cp -r ../tsnp-contrib/fs tsnp/          # 官方文件系统插件
-# 自定义插件：从 prepare/tsnp/ 拷贝
-cp -r prepare/tsnp/crypto tsnp/         # 自定义加密插件
+# 从子模块拷贝官方插件
+cp -r ../tsnp-contrib/http tsnp/
 
 # 编译运行
 ts-native main.ts
 ./main.exe
 ```
 
-## 什么是 cargo-tsn
+## 命令参考
 
-`cargo-tsn` 是 ts-native 编译器的项目管理工具，提供：
-
-- **项目脚手架**：快速创建 ts-native 项目
-- **FFI 插件生成**：从 TypeScript 声明自动生成 C 插件骨架
-- **依赖管理**：管理插件依赖关系
-- **智能优先级**：自定义插件默认优先级 1000，高于官方插件（0）
-
-## 官方插件库（子模块）
-
-cargo-tsn 包含 [tsnp-contrib](https://github.com/itszzl-sudo/tsnp-contrib) 作为 Git 子模块，提供官方插件实现：
-
-### 可用插件
-
-| 插件 | 功能 | 平台 |
-|------|------|------|
-| [http](tsnp-contrib/http/) | HTTP 请求 | Windows, Linux, macOS |
-| [fs](tsnp-contrib/fs/) | 文件系统操作 | Windows, Linux, macOS |
-| [crypto](tsnp-contrib/crypto/) | 加密哈希 | Windows, Linux, macOS |
-| [os](tsnp-contrib/os/) | 操作系统信息 | Windows, Linux, macOS |
-| [path](tsnp-contrib/path/) | 路径处理 | Windows, Linux, macOS |
-| [cli](tsnp-contrib/cli/) | 命令行参数 | Windows, Linux, macOS |
-| [timer](tsnp-contrib/timer/) | 定时器 | Windows, Linux, macOS |
-| [json](tsnp-contrib/json/) | JSON 解析 | Windows, Linux, macOS |
-| [net](tsnp-contrib/net/) | 网络套接字 | Windows, Linux, macOS |
-| [process](tsnp-contrib/process/) | 进程管理 | Windows, Linux, macOS |
-| [log](tsnp-contrib/log/) | 日志系统 | Windows, Linux, macOS |
-| [env](tsnp-contrib/env/) | 环境变量 | Windows, Linux, macOS |
-
-### 使用官方插件
+### `cargo tsn new` - 创建项目
 
 ```bash
-# 1. 准备项目
-cargo tsn prepare
-
-# 2. 查看官方插件列表
-cat prepare/has-tsnp-contrib.txt
-
-# 3. 从子模块拷贝需要的插件
-cp -r tsnp-contrib/http tsnp/
-cp -r tsnp-contrib/fs tsnp/
-
-# 4. 编译
-ts-native main.ts
+cargo tsn new <project-name>
 ```
 
-### 子模块管理
+**功能**：创建 ts-native 项目脚手架
 
-```bash
-# 克隆时初始化子模块
-git clone --recurse-submodules https://github.com/itszzl-sudo/cargo-tsn.git
-
-# 或者手动初始化
-git submodule update --init --recursive
-
-# 更新子模块到最新版本
-git submodule update --remote tsnp-contrib
-
-# 查看子模块状态
-git submodule status
-```
-
-## 核心功能
-
-### 1. `cargo tsn new` - 创建项目
-
-```bash
-cargo tsn new my-project
-```
-
-生成：
+**生成结构**：
 ```
 my-project/
 ├── main.ts           # TypeScript 入口
 ├── Cargo.toml        # Rust 配置
-├── src/
-│   └── lib.rs        # Rust 库（可选）
 └── tsnp/             # FFI 插件目录
 ```
 
-### 2. `cargo tsn prepare` - 生成 FFI 插件骨架 ⭐
+---
 
-从 TypeScript 的 `declare function` 声明自动生成完整的插件结构。
+### `cargo tsn prepare` - 生成插件骨架 ⭐
 
-**输入**：
-```typescript
-// main.ts
-declare function crypto_md5(data: string): string;
-declare function http_get(url: string): string;
-declare function math_add(a: number, b: number): number;
-
-function main(): number {
-    let hash = crypto_md5("hello");
-    print(hash);
-    return 0;
-}
+```bash
+cargo tsn prepare [OPTIONS]
 ```
 
-**运行**：
+**功能**：从 TypeScript 源码分析插件需求，生成插件模板和依赖声明
+
+**选项**：
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `--input <FILE>` | 指定输入文件 | 自动扫描 *.ts |
+| `--output <DIR>` | 输出目录 | `./prepare` |
+| `--dry-run` | 预览模式（不生成文件） | - |
+
+**示例**：
 ```bash
+# 生成到默认目录
 cargo tsn prepare
-```
 
-**输出到 `prepare/` 目录**：
-```
-📦 Analyzing TypeScript files...
-  ✓ Found: main.ts
-  ✓ Parsed 3 FFI functions
+# 指定输入文件
+cargo tsn prepare --input src/api.ts
 
-🔍 Grouping functions by plugin...
-  ✓ crypto: 1 function(s)
-  ✓ http: 1 function(s)
-  ✓ math: 1 function(s)
+# 指定输出目录
+cargo tsn prepare --output my-plugins
 
-⚙️  Generating plugins...
-
-crypto ████████████████████████████████ 4/4
-  ✓ prepare/tsnp/crypto/crypto_win.c
-  ✓ prepare/tsnp/crypto/ts-native.toml
-  ✓ prepare/tsnp/crypto/ts-native-win.toml
-
-✅ Prepared 3 plugin(s) with 3 function(s)
-```
-
-**预览模式**（不生成文件）：
-```bash
+# 预览模式
 cargo tsn prepare --dry-run
 ```
 
-**生成的文件结构**：
+**输出**：
 ```
-prepare/tsnp/
-├── crypto/
-│   ├── crypto_win.c           ← Windows C 模板（注释形式）
-│   ├── crypto_linux.c         ← Linux 模板
-│   ├── crypto_macos.c         ← macOS 模板
-│   ├── ts-native.toml         ← 主配置（priority = 1000）
-│   ├── ts-native-win.toml     ← Windows 平台配置
-│   ├── ts-native-linux.toml   ← Linux 平台配置
-│   ├── ts-native-macos.toml   ← macOS 平台配置
-│   └── index.d.ts             ← TypeScript 声明
-├── http/
-│   └── ... (同上)
-└── math/
-    └── ... (同上)
+📦 Analyzing TypeScript files...
+  ✓ Found: main.ts, worker.ts
+  ✓ Detected 4 plugin(s) via AST analysis
+
+📦 Official Plugins:
+  ✓ has-tsnp-contrib.txt (4 plugins)
+  ✓ templates/tsnp/http/
+  ✓ templates/tsnp/crypto/
+
+  ✓ main.ts.toml
+  ✓ worker.ts.toml
+✅ Prepared 4 plugin(s)
+   - 4 official (copy from tsnp-contrib/)
+   - 0 custom (implement in tsnp/)
 ```
 
-**工作流**：
-```
-1. cargo tsn prepare                # 生成到 prepare/tsnp/
-   ↓
-2. 在 prepare/tsnp/ 中编辑、选择
-   ↓
-3. cp -r prepare/tsnp/crypto tsnp/  # 只拷贝需要的插件
-   cp -r prepare/tsnp/http tsnp/    # 选择性拷贝
-   ↓
-4. 实现 C 函数
-   ↓
-5. ts-native main.ts                # 编译链接
-```
+**详细文档**：[docs/PREPARE_DESIGN.md](docs/PREPARE_DESIGN.md)
 
-### 3. `cargo tsn add` - 添加 Crate 依赖
+---
+
+### `cargo tsn add` - 添加 Crate 依赖
 
 ```bash
-cargo tsn add serde_json
+cargo tsn add <crate-name>
 ```
 
-自动：
-- 添加 Rust crate 依赖
-- 提示用户编写 TypeScript FFI 声明
-- 引导用户使用 `cargo tsn prepare` 生成插件
+**功能**：添加 Rust crate 依赖并引导创建 FFI 插件
 
 **工作流**：
 ```bash
@@ -223,154 +125,142 @@ cargo tsn prepare
 cp -r prepare/tsnp/crypto tsnp/
 ```
 
-> **注意**：旧版 `tsnp gen` 命令已废弃，请使用 `cargo tsn prepare` 代替。
+---
 
-### 4. `cargo tsn func` - 交互式添加 FFI 函数
-
-```bash
-cargo tsn func
-```
-
-交互式向导：
-```
-Select crate:
-[1] crypto (tsnp/crypto/)
-[2] http (tsnp/http/)
-[q] Quit
-
-Select: 1
-
-Function name: crypto_sha256
-Parameters: data: string
-Return type: string
-```
-
-**适用场景**：快速向现有插件添加单个函数
-
-### 5. `cargo tsn list` - 列出本地插件
+### `cargo tsn list` - 列出插件
 
 ```bash
 cargo tsn list
 ```
 
+**功能**：列出本地可用的官方和自定义插件
+
 **输出示例**：
 ```
 📦 Developer Plugins (tsnp/):
   - crypto v0.1.0 (priority: 1000)
-  - http v0.1.0 (priority: 1000)
 
 🏛️  Official Plugins (tsnp-contrib/):
-  - cli v0.1.0 (priority: 0)
+  - http v0.1.0 (priority: 0)
   - fs v0.1.0 (priority: 0)
-  - mqtt v0.1.0 (priority: 0)
 ```
 
-**特性**：
-- 区分开发者自定义插件和官方插件
-- 优先显示自定义插件（tsnp/）
-- 显示版本号和优先级
-- 自动搜索 tsnp-contrib 目录
+---
 
-## C 文件模板说明
+## 官方插件（子模块）
 
-`cargo tsn prepare` 生成的 C 文件包含**注释形式的函数模板**，而非桩实现：
+cargo-tsn 包含 [tsnp-contrib](https://github.com/itszzl-sudo/tsnp-contrib) 子模块，提供 12 个官方插件：
 
-```c
-// Windows Implementation for crypto
-// Auto-generated by cargo tsn prepare
-// TODO: Implement your platform-specific functions here
+| 插件 | 功能 | 平台 |
+|------|------|------|
+| [http](tsnp-contrib/http/) | HTTP 请求 | Win/Linux/macOS |
+| [fs](tsnp-contrib/fs/) | 文件系统 | Win/Linux/macOS |
+| [crypto](tsnp-contrib/crypto/) | 加密哈希 | Win/Linux/macOS |
+| [os](tsnp-contrib/os/) | 系统信息 | Win/Linux/macOS |
+| [path](tsnp-contrib/path/) | 路径处理 | Win/Linux/macOS |
+| [cli](tsnp-contrib/cli/) | 命令行参数 | Win/Linux/macOS |
+| [timer](tsnp-contrib/timer/) | 定时器 | Win/Linux/macOS |
+| [json](tsnp-contrib/json/) | JSON 解析 | Win/Linux/macOS |
+| [net](tsnp-contrib/net/) | 网络套接字 | Win/Linux/macOS |
+| [process](tsnp-contrib/process/) | 进程管理 | Win/Linux/macOS |
+| [log](tsnp-contrib/log/) | 日志系统 | Win/Linux/macOS |
+| [env](tsnp-contrib/env/) | 环境变量 | Win/Linux/macOS |
 
-#include <windows.h>
-
-// Runtime external functions
-extern double js_string_new(const char* data, unsigned int len);
-extern const char* js_string_unpack(double val);
-extern double js_number_new(double val);
-extern double js_boolean_new(int val);
-
-// Function templates (copy and implement as needed):
-
-// ============================================================
-// crypto_md5(data: string) -> string
-//
-// double crypto_md5(double p0) {
-//     const char* data = js_string_unpack(p0);
-//     
-//     // TODO: Implement your logic here
-//     
-//     return js_string_new("", 0);
-// }
-```
-
-**设计理念**：
-- ✅ 清晰标记未实现的函数
-- ✅ 避免忘记实现函数
-- ✅ 取消注释即可开始实现
-- ✅ 不会意外编译桩代码
-
-## 配置格式
-
-### 主配置（ts-native.toml）
-
-```toml
-[package]
-name = "tsnp-crypto"
-version = "0.1.0"
-priority = 1780656512  # 时间戳优先级
-
-[includes]
-win = "ts-native-win.toml"
-linux = "ts-native-linux.toml"
-macos = "ts-native-macos.toml"
-
-[signatures]
-"crypto_md5" = "function(data: string): string"
-
-[build]
-warn_on_missing = true
-error_on_mismatch = true
-```
-
-### 平台配置（ts-native-win.toml）
-
-```toml
-[platform]
-name = "Windows"
-os = "win"
-arch = ["x86_64", "arm64"]
-description = "Windows platform"
-
-[libs.default.functions]
-"crypto_md5" = {
-    impl_name = "crypto_md5",
-    enabled = true,
-    system = "SystemAPI",
-    args = ["string"],
-    ret = "string",
-    description = "MD5 hash function"
-}
-```
-
-## 命令行选项
-
-### `cargo tsn prepare`
-
+**使用官方插件**：
 ```bash
-cargo tsn prepare [OPTIONS]
-
-Options:
-  --input <FILE>         指定输入文件（默认：自动扫描 *.ts）
-  --output <DIR>         输出目录（默认：./prepare）
-  --dry-run              预览模式（不生成文件）
-```
-
-**示例**：
-```bash
-# 生成到默认目录 (./prepare)
+# 1. 准备项目
 cargo tsn prepare
 
-# 指定输入文件
-cargo tsn prepare --input src/api.ts
+# 2. 查看官方插件列表
+cat prepare/has-tsnp-contrib.txt
+
+# 3. 从子模块拷贝
+cp -r tsnp-contrib/http tsnp/
+cp -r tsnp-contrib/fs tsnp/
+
+# 4. 编译
+ts-native main.ts
+```
+
+**子模块管理**：
+```bash
+# 克隆时初始化
+git clone --recurse-submodules https://github.com/itszzl-sudo/cargo-tsn.git
+
+# 手动初始化
+git submodule update --init --recursive
+
+# 更新到最新版本
+git submodule update --remote tsnp-contrib
+
+# 查看状态
+git submodule status
+```
+
+---
+
+## 工作流
+
+### 标准工作流
+
+```
+1. cargo tsn new my-project         # 创建项目
+   ↓
+2. 编写 TypeScript 代码              # 包含 declare function
+   ↓
+3. cargo tsn prepare                # 生成插件骨架
+   ↓
+4. cp -r tsnp-contrib/http tsnp/    # 拷贝官方插件
+   ↓
+5. 实现自定义插件 C 函数             # 在 tsnp/<plugin>/ 中
+   ↓
+6. ts-native main.ts                # 编译
+   ↓
+7. ./main.exe                       # 运行
+```
+
+### 插件优先级
+
+| 插件来源 | 默认优先级 | 说明 |
+|---------|-----------|------|
+| **自定义插件** | **1000** | 通过 prepare 生成 |
+| **官方插件** | **0** | tsnp-contrib 子模块 |
+
+自定义插件始终优先于官方插件。
+
+---
+
+## 项目结构
+
+```
+cargo-tsn/
+├── src/
+│   ├── main.rs              # CLI 入口
+│   └── prepare.rs           # prepare 命令实现
+├── docs/
+│   └── PREPARE_DESIGN.md    # prepare 命令详细设计
+├── tsnp-contrib/            # 官方插件子模块
+├── test-prepare/            # 测试用例
+├── README.md                # 本文档
+├── CHANGELOG.md             # 版本历史
+└── Cargo.toml               # 项目配置
+```
+
+---
+
+## 相关工具
+
+| 工具 | 描述 | 安装 |
+|------|------|------|
+| **[ts-native](https://github.com/itszzl-sudo/ts-native/blob/main/README.md)** | TypeScript 到原生编译器 | `cargo install ts-native` |
+| **[tsn](https://github.com/itszzl-sudo/ts-native/blob/main/README.md)** | 同上，短名称 | `cargo install tsn` |
+| **[tsnp-contrib](https://github.com/itszzl-sudo/tsnp-contrib)** | 官方插件集合 | Git 子模块 |
+
+---
+
+## 许可证
+
+MITsn prepare --input src/api.ts
 
 # 指定输出目录
 cargo tsn prepare --output my-plugins
