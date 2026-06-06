@@ -48,6 +48,31 @@ my-project/
 └── tsnp/             # FFI 插件目录
 ```
 
+**与 prepare 的关系**：
+- `new` 创建项目基础结构（空项目）
+- `prepare` 分析代码并生成插件模板和依赖声明
+- **工作流**：`new` → 编写代码 → `prepare` → 拷贝插件 → 编译
+
+**示例**：
+```bash
+# 1. 创建项目
+cargo tsn new my-app
+cd my-app
+
+# 2. 编写 TypeScript 代码（使用插件 API）
+# 编辑 main.ts，使用 http_get()、fs_writeFile() 等
+
+# 3. 分析代码生成插件模板
+cargo tsn prepare
+
+# 4. 拷贝官方插件
+cp -r ../tsnp-contrib/http tsnp/
+cp -r ../tsnp-contrib/fs tsnp/
+
+# 5. 编译
+ts-native main.ts
+```
+
 ---
 
 ### `cargo tsn prepare` - 生成插件骨架 ⭐
@@ -108,7 +133,7 @@ cargo tsn prepare --dry-run
 cargo tsn add <crate-name>
 ```
 
-**功能**：添加 Rust crate 依赖
+**功能**：添加 Rust crate 到 `Cargo.toml`
 
 **示例**：
 ```bash
@@ -117,9 +142,26 @@ cargo tsn add serde_json
 ```
 
 **说明**：
-- 自动在 `Cargo.toml` 中添加依赖
-- 如果需要 FFI 插件，需要手动编写 C 实现
-- 推荐使用 `cargo tsn prepare` 从 TypeScript 代码生成插件
+- 仅添加 Rust crate 依赖（运行 `cargo add`）
+- **不会**自动生成 FFI 插件
+- 如果需要将 crate 功能暴露给 TypeScript，需要：
+  1. 手动编写 C FFI 函数包装 crate
+  2. 或使用 `cargo tsn prepare` 从 TypeScript 代码生成插件
+
+**工作流示例**：
+```bash
+# 1. 添加 crate
+cargo tsn add sha2
+
+# 2. 在 TypeScript 中使用（如果有对应的官方插件）
+# 不需要手动写 declare function，AST 会自动检测
+
+# 3. 生成插件模板
+cargo tsn prepare
+
+# 4. 从子模块拷贝官方插件（如果有）
+cp -r tsnp-contrib/crypto tsnp/
+```
 
 ---
 
@@ -310,11 +352,14 @@ cargo tsn prepare --dry-run
 
 ## 与 tsnp 的区别
 
-| 工具 | 职责 | 输入 | 输出 |
-|------|------|------|------|
-| **tsnp new** | 创建空插件模板 | 插件名 | 空模板文件 |
-| **tsnp gen** | 从 crate 生成配置 | crate 名 | 配置文件 |
-| **tsn prepare** | 从 TS 源码生成实现 | TS 文件 | C 模板 + 配置 |
+> **注意**：`tsnp` 工具已被 `cargo tsn prepare` 替代。
+
+| 工具 | 职责 | 输入 | 输出 | 状态 |
+|------|------|------|------|------|
+| **cargo tsn new** | 创建空项目 | 项目名 | 项目脚手架 | ✅ 推荐使用 |
+| **cargo tsn prepare** | 从 TS 源码生成插件 | TS 文件 | 插件模板 + 配置 | ✅ 推荐使用 |
+| **tsnp new** | 创建空插件模板 | 插件名 | 空模板文件 | ⚠️ 已废弃 |
+| **tsnp gen** | 从 crate 生成配置 | crate 名 | 配置文件 | ⚠️ 已废弃 |
 
 ## 插件优先级系统
 
