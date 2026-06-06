@@ -10,69 +10,151 @@ use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsSyntax};
 use swc_ecma_visit::{Visit, VisitWith};
 use std::sync::Arc;
 
-/// API 到插件的映射表
+/// API 到插件的映射表（与 tsnp-contrib 中的实际函数完全对齐）
 fn build_api_plugin_map() -> HashMap<String, String> {
     let mut map = HashMap::new();
     
-    // HTTP 相关
-    map.insert("fetch".to_string(), "http".to_string());
-    map.insert("XMLHttpRequest".to_string(), "http".to_string());
+    // ===== HTTP 插件 =====
     map.insert("http_get".to_string(), "http".to_string());
     map.insert("http_post".to_string(), "http".to_string());
-    map.insert("http_request".to_string(), "http".to_string());
+    map.insert("http_put".to_string(), "http".to_string());
+    map.insert("http_delete".to_string(), "http".to_string());
+    map.insert("http_head".to_string(), "http".to_string());
+    map.insert("http_get_status".to_string(), "http".to_string());
+    map.insert("http_get_header".to_string(), "http".to_string());
+    map.insert("http_set_timeout".to_string(), "http".to_string());
     
-    // 文件系统
-    map.insert("writeFileSync".to_string(), "fs".to_string());
-    map.insert("readFileSync".to_string(), "fs".to_string());
-    map.insert("writeFile".to_string(), "fs".to_string());
-    map.insert("readFile".to_string(), "fs".to_string());
-    map.insert("fs_write".to_string(), "fs".to_string());
-    map.insert("fs_read".to_string(), "fs".to_string());
-    map.insert("fs_writeFile".to_string(), "fs".to_string());
-    map.insert("fs_readFile".to_string(), "fs".to_string());
-    map.insert("file_append".to_string(), "fs".to_string());
-    map.insert("file_exists".to_string(), "fs".to_string());
-    map.insert("file_read".to_string(), "fs".to_string());
+    // ===== FS 插件 =====
     map.insert("file_write".to_string(), "fs".to_string());
+    map.insert("file_append".to_string(), "fs".to_string());
+    map.insert("file_read".to_string(), "fs".to_string());
+    map.insert("file_exists".to_string(), "fs".to_string());
+    map.insert("file_size".to_string(), "fs".to_string());
     
-    // 加密
-    map.insert("sha256".to_string(), "crypto".to_string());
-    map.insert("md5".to_string(), "crypto".to_string());
-    map.insert("createHash".to_string(), "crypto".to_string());
-    map.insert("crypto_encrypt".to_string(), "crypto".to_string());
-    map.insert("crypto_decrypt".to_string(), "crypto".to_string());
-    map.insert("crypto_sha256".to_string(), "crypto".to_string());
+    // ===== CRYPTO 插件 =====
     map.insert("crypto_md5".to_string(), "crypto".to_string());
+    map.insert("crypto_sha256".to_string(), "crypto".to_string());
+    map.insert("crypto_sha1".to_string(), "crypto".to_string());
+    map.insert("crypto_crc32".to_string(), "crypto".to_string());
+    map.insert("crypto_base64_encode".to_string(), "crypto".to_string());
+    map.insert("crypto_base64_decode".to_string(), "crypto".to_string());
     
-    // 操作系统
+    // ===== OS 插件 =====
     map.insert("os_type".to_string(), "os".to_string());
-    map.insert("os_cpus".to_string(), "os".to_string());
+    map.insert("os_arch".to_string(), "os".to_string());
     map.insert("os_hostname".to_string(), "os".to_string());
+    map.insert("os_homedir".to_string(), "os".to_string());
+    map.insert("os_tmpdir".to_string(), "os".to_string());
+    map.insert("os_env".to_string(), "os".to_string());
+    map.insert("os_setenv".to_string(), "os".to_string());
+    map.insert("os_cpus".to_string(), "os".to_string());
+    map.insert("os_totalmem".to_string(), "os".to_string());
+    map.insert("os_freemem".to_string(), "os".to_string());
+    map.insert("os_uptime".to_string(), "os".to_string());
     
-    // 路径处理
+    // ===== PATH 插件 =====
     map.insert("path_join".to_string(), "path".to_string());
-    map.insert("path_resolve".to_string(), "path".to_string());
+    map.insert("path_dirname".to_string(), "path".to_string());
     map.insert("path_basename".to_string(), "path".to_string());
+    map.insert("path_extname".to_string(), "path".to_string());
+    map.insert("path_is_absolute".to_string(), "path".to_string());
+    map.insert("path_normalize".to_string(), "path".to_string());
+    map.insert("path_cwd".to_string(), "path".to_string());
+    map.insert("path_resolve".to_string(), "path".to_string());
     
-    // 进程
+    // ===== PROCESS 插件 =====
+    map.insert("process_pid".to_string(), "process".to_string());
+    map.insert("process_ppid".to_string(), "process".to_string());
     map.insert("process_exit".to_string(), "process".to_string());
-    map.insert("process_env".to_string(), "process".to_string());
-    map.insert("spawn".to_string(), "process".to_string());
+    map.insert("process_memory".to_string(), "process".to_string());
+    map.insert("process_exec".to_string(), "process".to_string());
+    map.insert("process_spawn".to_string(), "process".to_string());
+    map.insert("process_kill".to_string(), "process".to_string());
+    map.insert("process_exists".to_string(), "process".to_string());
     
-    // 命令行
-    map.insert("cli_args".to_string(), "cli".to_string());
-    map.insert("cli_parse".to_string(), "cli".to_string());
+    // ===== CLI 插件 =====
     map.insert("argc".to_string(), "cli".to_string());
     map.insert("argv".to_string(), "cli".to_string());
+    map.insert("now_ms".to_string(), "cli".to_string());
+    map.insert("sleep".to_string(), "cli".to_string());
+    map.insert("getenv".to_string(), "cli".to_string());
+    map.insert("exit".to_string(), "cli".to_string());
     
-    // 定时器
-    map.insert("sleep".to_string(), "timer".to_string());
-    map.insert("setTimeout".to_string(), "timer".to_string());
-    map.insert("setInterval".to_string(), "timer".to_string());
-    map.insert("now_ms".to_string(), "timer".to_string());
-    map.insert("now_us".to_string(), "timer".to_string());
-    map.insert("timer_now".to_string(), "timer".to_string());
-    map.insert("timer_sleep".to_string(), "timer".to_string());
+    // ===== TIMER 插件 =====
+    map.insert("timer_now_us".to_string(), "timer".to_string());
+    map.insert("timer_measure".to_string(), "timer".to_string());
+    map.insert("timer_sleep_us".to_string(), "timer".to_string());
+    map.insert("timer_format".to_string(), "timer".to_string());
+    
+    // ===== JSON 插件 =====
+    map.insert("json_parse".to_string(), "json".to_string());
+    map.insert("json_stringify".to_string(), "json".to_string());
+    map.insert("json_get".to_string(), "json".to_string());
+    map.insert("json_set".to_string(), "json".to_string());
+    map.insert("json_has".to_string(), "json".to_string());
+    map.insert("json_delete".to_string(), "json".to_string());
+    map.insert("json_keys".to_string(), "json".to_string());
+    map.insert("json_length".to_string(), "json".to_string());
+    map.insert("json_validate".to_string(), "json".to_string());
+    map.insert("json_pretty".to_string(), "json".to_string());
+    
+    // ===== NET 插件 =====
+    // (暂无官方插件，预留)
+    
+    // ===== LOG 插件 =====
+    map.insert("log_debug".to_string(), "log".to_string());
+    map.insert("log_info".to_string(), "log".to_string());
+    map.insert("log_warn".to_string(), "log".to_string());
+    map.insert("log_error".to_string(), "log".to_string());
+    map.insert("log_fatal".to_string(), "log".to_string());
+    map.insert("log_set_level".to_string(), "log".to_string());
+    map.insert("log_set_file".to_string(), "log".to_string());
+    map.insert("log_set_console".to_string(), "log".to_string());
+    map.insert("log_get_level".to_string(), "log".to_string());
+    map.insert("log_format".to_string(), "log".to_string());
+    
+    // ===== ENV 插件 =====
+    // (功能已包含在 os 插件中)
+    
+    // ===== MATH 插件 =====
+    map.insert("math_abs".to_string(), "math".to_string());
+    map.insert("math_floor".to_string(), "math".to_string());
+    map.insert("math_ceil".to_string(), "math".to_string());
+    map.insert("math_round".to_string(), "math".to_string());
+    map.insert("math_pow".to_string(), "math".to_string());
+    map.insert("math_sqrt".to_string(), "math".to_string());
+    map.insert("math_sin".to_string(), "math".to_string());
+    map.insert("math_cos".to_string(), "math".to_string());
+    map.insert("math_tan".to_string(), "math".to_string());
+    map.insert("math_log".to_string(), "math".to_string());
+    map.insert("math_log2".to_string(), "math".to_string());
+    map.insert("math_log10".to_string(), "math".to_string());
+    map.insert("math_exp".to_string(), "math".to_string());
+    map.insert("math_max".to_string(), "math".to_string());
+    map.insert("math_min".to_string(), "math".to_string());
+    map.insert("math_random".to_string(), "math".to_string());
+    map.insert("math_pi".to_string(), "math".to_string());
+    map.insert("math_e".to_string(), "math".to_string());
+    
+    // ===== STRING 插件 =====
+    map.insert("str_len".to_string(), "string".to_string());
+    map.insert("str_substr".to_string(), "string".to_string());
+    map.insert("str_replace".to_string(), "string".to_string());
+    map.insert("str_replace_all".to_string(), "string".to_string());
+    map.insert("str_find".to_string(), "string".to_string());
+    map.insert("str_to_upper".to_string(), "string".to_string());
+    map.insert("str_to_lower".to_string(), "string".to_string());
+    map.insert("str_trim".to_string(), "string".to_string());
+    map.insert("str_trim_left".to_string(), "string".to_string());
+    map.insert("str_trim_right".to_string(), "string".to_string());
+    map.insert("str_split".to_string(), "string".to_string());
+    map.insert("str_join".to_string(), "string".to_string());
+    map.insert("str_repeat".to_string(), "string".to_string());
+    map.insert("str_starts_with".to_string(), "string".to_string());
+    map.insert("str_ends_with".to_string(), "string".to_string());
+    map.insert("str_contains".to_string(), "string".to_string());
+    map.insert("str_pad_left".to_string(), "string".to_string());
+    map.insert("str_pad_right".to_string(), "string".to_string());
     
     map
 }
