@@ -373,8 +373,8 @@ fn generate_plugins_from_groups(
     Ok(())
 }
 
-/// 生成 .ts.toml 文件
-fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunction>>, output: &str) -> Result<()> {
+/// 生成 .ts.toml 文件（按文件分析插件需求）
+fn generate_ts_toml(ts_files: &[String], all_groups: &HashMap<String, Vec<FFIFunction>>, output: &str) -> Result<()> {
     use std::path::Path;
     
     // 只为包含 main 函数的 TS 文件生成 .ts.toml
@@ -393,6 +393,9 @@ fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunctio
             continue;
         }
         
+        // 分析这个文件需要哪些插件
+        let file_plugins = detect_plugins_from_ast(&[ts_file.clone()])?;
+        
         let path = Path::new(ts_file);
         let file_stem = path.file_stem()
             .ok_or_else(|| anyhow::anyhow!("Invalid file name: {}", ts_file))?;
@@ -400,10 +403,9 @@ fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunctio
         let toml_name = format!("{}.ts.toml", file_stem.to_string_lossy());
         let toml_path = Path::new(output).join(&toml_name);
         
-        // 收集所有插件（官方 + 自定义）
-        let plugins: Vec<String> = groups.keys()
-            .filter(|k| *k != "default")
-            .cloned()
+        // 过滤出这个文件需要的插件
+        let plugins: Vec<String> = file_plugins.into_iter()
+            .filter(|k| k != "default")
             .collect();
         
         if plugins.is_empty() {

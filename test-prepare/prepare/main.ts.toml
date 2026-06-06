@@ -1,2 +1,2 @@
 [dependencies]
-tsnp = ["http", "os", "crypto", "fs"]
+tsnp = ["http", "crypto", "fs"]
