@@ -430,10 +430,8 @@ fn generate_plugins_from_groups(
             }
         }
         
-        // 生成 .ts.toml 文件（合并官方和自定义）
-        let mut all_groups = official_groups.clone();
-        all_groups.extend(custom_groups.clone());
-        generate_ts_toml(ts_files, &all_groups, output)?;
+        // 生成 .ts.toml 文件（为每个有 main 函数的 TS 文件生成）
+        generate_ts_toml(ts_files, output)?;
         
         let total_plugins = official_groups.len() + custom_groups.len();
         let total_funcs: usize = official_groups.values().chain(custom_groups.values()).map(|v| v.len()).sum();
@@ -489,11 +487,11 @@ fn has_main_function(ts_file: &str) -> Result<bool> {
     Ok(detector.found)
 }
 
-/// 生成 .ts.toml 文件（按文件分析插件需求）
-fn generate_ts_toml(ts_files: &[String], all_groups: &HashMap<String, Vec<FFIFunction>>, output: &str) -> Result<()> {
+/// 生成 .ts.toml 文件（为每个包含 main 函数的 TS 文件生成依赖声明）
+fn generate_ts_toml(ts_files: &[String], output: &str) -> Result<()> {
     use std::path::Path;
     
-    // 只为包含 main 函数的 TS 文件生成 .ts.toml
+    // 为每个包含 main 函数的 TS 文件生成 .ts.toml
     for ts_file in ts_files {
         // 使用 AST 检测是否包含 main 函数
         let has_main = has_main_function(ts_file).unwrap_or(false);
@@ -517,23 +515,30 @@ fn generate_ts_toml(ts_files: &[String], all_groups: &HashMap<String, Vec<FFIFun
             .filter(|k| k != "default")
             .collect();
         
-        if plugins.is_empty() {
-            continue;
-        }
-        
-        // 生成 TOML 内容
-        let toml_content = format!(
-            "[dependencies]\ntsnp = [{}]\n",
-            plugins.iter()
-                .map(|p| format!("\"{}\"", p))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
+        // 即使没有检测到插件，也生成空的 .ts.toml（入口文件标记）
+        let toml_content = if plugins.is_empty() {
+            format!(
+                "# Entry point: {}\n# No plugin dependencies detected\n\n[dependencies]\ntsnp = []\n",
+                file_stem.to_string_lossy()
+            )
+        } else {
+            format!(
+                "[dependencies]\ntsnp = [{}]\n",
+                plugins.iter()
+                    .map(|p| format!("\"{}\"", p))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        };
         
         fs::write(&toml_path, &toml_content)
             .context(format!("Failed to write {}", toml_path.display()))?;
         
-        println!("  ✓ {}", toml_name);
+        if plugins.is_empty() {
+            println!("  ✓ {} (no plugins)", toml_name);
+        } else {
+            println!("  ✓ {}", toml_name);
+        }
     }
     
     Ok(())
