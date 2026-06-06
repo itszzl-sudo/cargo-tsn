@@ -377,8 +377,22 @@ fn generate_plugins_from_groups(
 fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunction>>, output: &str) -> Result<()> {
     use std::path::Path;
     
-    // 对每个 TS 文件生成 .ts.toml
+    // 只为包含 main 函数的 TS 文件生成 .ts.toml
     for ts_file in ts_files {
+        let content = fs::read_to_string(ts_file)
+            .context(format!("Failed to read file: {}", ts_file))?;
+        
+        // 检查是否包含 main 函数
+        let has_main = content.contains("function main") 
+            || content.contains("export function main")
+            || content.contains("const main")
+            || content.contains("let main")
+            || content.contains("var main");
+        
+        if !has_main {
+            continue;
+        }
+        
         let path = Path::new(ts_file);
         let file_stem = path.file_stem()
             .ok_or_else(|| anyhow::anyhow!("Invalid file name: {}", ts_file))?;
@@ -386,7 +400,7 @@ fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunctio
         let toml_name = format!("{}.ts.toml", file_stem.to_string_lossy());
         let toml_path = Path::new(output).join(&toml_name);
         
-        // 收集这个文件用到的插件
+        // 收集所有插件（官方 + 自定义）
         let plugins: Vec<String> = groups.keys()
             .filter(|k| *k != "default")
             .cloned()

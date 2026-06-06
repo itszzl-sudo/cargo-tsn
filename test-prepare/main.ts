@@ -40,3 +40,11 @@ function testMoreCustomPlugins() {
     console.log("Custom 1:", result1);
     console.log("Custom 2:", result2);
 }
+
+// 6. 主入口函数
+function main() {
+    console.log("=== Main Entry Point ===");
+    testOfficialPlugins();
+    testCustomPlugin();
+    testMoreCustomPlugins();
+}
