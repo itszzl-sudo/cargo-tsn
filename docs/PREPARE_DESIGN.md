@@ -122,8 +122,7 @@ prepare/
 │       │   ├── http_macos.c
 │       │   └── ts-native.toml
 │       └── ...
-└── tsnp/                         ← 自定义插件
-    └── <custom-plugin>/
+└── <file>.ts.toml                ← 入口文件依赖声明
 ```
 
 ## 依赖声明生成

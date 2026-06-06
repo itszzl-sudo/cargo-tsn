@@ -108,22 +108,18 @@ cargo tsn prepare --dry-run
 cargo tsn add <crate-name>
 ```
 
-**功能**：添加 Rust crate 依赖并引导创建 FFI 插件
+**功能**：添加 Rust crate 依赖
 
-**工作流**：
+**示例**：
 ```bash
-# 1. 添加 crate
-cargo tsn add crypto
-
-# 2. 在 TypeScript 中写 FFI 声明
-declare function crypto_sha256(data: string): string;
-
-# 3. 生成插件骨架
-cargo tsn prepare
-
-# 4. 拷贝到项目
-cp -r prepare/tsnp/crypto tsnp/
+# 添加 Rust crate
+cargo tsn add serde_json
 ```
+
+**说明**：
+- 自动在 `Cargo.toml` 中添加依赖
+- 如果需要 FFI 插件，需要手动编写 C 实现
+- 推荐使用 `cargo tsn prepare` 从 TypeScript 代码生成插件
 
 ---
 
@@ -206,18 +202,22 @@ git submodule status
 ```
 1. cargo tsn new my-project         # 创建项目
    ↓
-2. 编写 TypeScript 代码              # 包含 declare function
+2. 编写 TypeScript 代码              # 使用插件 API（如 http_get()）
    ↓
-3. cargo tsn prepare                # 生成插件骨架
+3. cargo tsn prepare                # 分析代码，生成官方插件模板和依赖声明
    ↓
-4. cp -r tsnp-contrib/http tsnp/    # 拷贝官方插件
+4. cp -r tsnp-contrib/http tsnp/    # 从子模块拷贝官方插件实现
    ↓
-5. 实现自定义插件 C 函数             # 在 tsnp/<plugin>/ 中
+5. ts-native main.ts                # 编译（自动加载 tsnp/ 中的插件）
    ↓
-6. ts-native main.ts                # 编译
-   ↓
-7. ./main.exe                       # 运行
+6. ./main.exe                       # 运行
 ```
+
+**说明**：
+- `cargo tsn prepare` 会分析你的代码使用了哪些插件 API
+- 官方插件（http, fs, crypto 等）直接从 `tsnp-contrib/` 子模块拷贝
+- 不需要手动编写 `declare function`，AST 分析会自动检测函数调用
+- `.ts.toml` 文件会自动生成，声明项目依赖哪些插件
 
 ### 插件优先级
 

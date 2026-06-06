@@ -8,7 +8,8 @@ mod prepare;
 
 #[derive(Parser)]
 #[command(name = "cargo-tsn")]
-#[command(about = "tsn project manager")]
+#[command(about = "ts-native project manager - plugin generation, dependency management, project scaffolding")]
+#[command(long_about = "cargo-tsn is a project management tool for ts-native compiler.\n\nIt provides:\n- Project scaffolding (cargo tsn new)\n- Plugin generation from TypeScript source (cargo tsn prepare)\n- Dependency management (cargo tsn add)\n- Plugin listing (cargo tsn list)\n\nFor detailed documentation, see: https://github.com/itszzl-sudo/cargo-tsn")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -16,27 +17,31 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Create a new tsn project")]
+    #[command(about = "Create a new ts-native project")]
+    #[command(long_about = "Create a new ts-native project with basic structure.\n\nExample:\n  cargo tsn new my-project\n\nThis creates:\n  my-project/\n  ├── main.ts           # TypeScript entry point\n  ├── Cargo.toml        # Rust configuration\n  └── tsnp/             # FFI plugin directory")]
     New {
+        #[arg(help = "Project name")]
         name: String,
     },
-    #[command(about = "Add a crate dependency and generate plugin")]
+    #[command(about = "Add a Rust crate dependency")]
+    #[command(long_about = "Add a Rust crate dependency to Cargo.toml.\n\nExample:\n  cargo tsn add serde_json\n\nNote: This only adds the Rust crate. For FFI plugins, use 'cargo tsn prepare' to generate from TypeScript source code.")]
     Add {
+        #[arg(help = "Crate name (e.g., serde_json, tokio)")]
         crate_name: String,
     },
-    #[command(about = "Interactively add FFI function to existing plugin")]
-    Func,
-    #[command(about = "List local plugins")]
+    #[command(about = "List available local plugins")]
+    #[command(long_about = "List available local plugins from tsnp/ and tsnp-contrib/.\n\nShows:\n- Developer plugins (tsnp/) with priority 1000\n- Official plugins (tsnp-contrib/) with priority 0\n\nExample:\n  cargo tsn list")]
     List,
-    #[command(about = "Generate C stubs from TypeScript FFI declarations")]
+    #[command(about = "Analyze TypeScript code and generate plugin templates")]
+    #[command(long_about = "Analyze TypeScript source code using AST parsing to detect plugin API usage,\nthen generate plugin templates and dependency declarations.\n\nWhat it does:\n1. Scans TypeScript files for plugin API calls (http_get, fs_writeFile, etc.)\n2. Detects which plugins are needed (http, fs, crypto, etc.)\n3. Generates empty templates for official plugins in prepare/templates/tsnp/\n4. Generates .ts.toml dependency files for each entry point (files with main function)\n\nOfficial plugins (from tsnp-contrib):\n  http, fs, crypto, os, path, cli, timer, json, net, process, log, env\n\nExamples:\n  cargo tsn prepare                     # Scan all *.ts files, output to ./prepare\n  cargo tsn prepare --input main.ts     # Only analyze main.ts\n  cargo tsn prepare --output my-plugins # Output to my-plugins/\n  cargo tsn prepare --dry-run           # Preview without writing files\n\nAfter running prepare:\n  1. Check prepare/has-tsnp-contrib.txt for official plugin list\n  2. Copy needed plugins: cp -r tsnp-contrib/http tsnp/\n  3. Compile: ts-native main.ts")]
     Prepare {
-        #[arg(long, help = "Input TypeScript file(s)")]
+        #[arg(long, help = "Input TypeScript file(s) to analyze (default: auto-scan *.ts)")]
         input: Option<String>,
         #[arg(long, help = "Output directory (default: ./prepare)")]
         output: Option<String>,
-        #[arg(long, help = "Preview mode (no files will be written)")]
+        #[arg(long, help = "Preview mode - show what would be generated without writing files")]
         dry_run: bool,
-        #[arg(long, help = "Disable stub generation (generate comment templates only)")]
+        #[arg(long, help = "Disable stub generation - only generate comment templates")]
         no_stubs: bool,
     },
 }
@@ -47,7 +52,6 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::New { name } => cmd_new(&name),
         Commands::Add { crate_name } => cmd_add(&crate_name),
-        Commands::Func => cmd_func(),
         Commands::List => cmd_list(),
         Commands::Prepare { input, output, dry_run, no_stubs } => {
             let input_ref = input.as_deref();
