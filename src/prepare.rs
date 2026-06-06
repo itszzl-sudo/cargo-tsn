@@ -247,63 +247,123 @@ pub fn group_by_plugin(functions: &[FFIFunction]) -> HashMap<String, Vec<FFIFunc
 
 /// 从 groups 生成插件（公共逻辑）
 fn generate_plugins_from_groups(
-    groups: &HashMap<String, Vec<FFIFunction>>,
+    official_groups: &HashMap<String, Vec<FFIFunction>>,
+    custom_groups: &HashMap<String, Vec<FFIFunction>>,
     output: &str,
     dry_run: bool,
     no_stubs: bool,
     ts_files: &[String],
 ) -> Result<()> {
+    let output_path = Path::new(output);
+    
     if dry_run {
         println!("\n🔍 Preview mode (no files will be written):\n");
         
-        for (plugin_name, funcs) in groups {
-            let plugin_dir = format!("{}/tsnp/{}", output, plugin_name);
-            println!("📁 {}/", plugin_dir);
-            
-            // Windows C 文件
-            let win_c = format!("{}_win.c", plugin_name.replace("-", "_"));
-            println!("   📄 {}", win_c);
-            
-            // Linux/macOS C 文件
-            println!("   📄 {}_linux.c", plugin_name.replace("-", "_"));
-            println!("   📄 {}_macos.c", plugin_name.replace("-", "_"));
-            
-            // 配置文件
-            println!("   📄 ts-native.toml");
-            println!("   📄 ts-native-win.toml");
-            println!("   📄 ts-native-linux.toml");
-            println!("   📄 ts-native-macos.toml");
-            
-            if !funcs.is_empty() {
-                // 函数列表
-                println!("   📝 Functions:");
-                for func in funcs {
-                    let params: Vec<String> = func.params.iter()
-                        .map(|p| format!("{}: {}", p.name, p.param_type))
-                        .collect();
-                    println!("      - {}({}) -> {}", func.name, params.join(", "), func.return_type);
+        // 官方插件
+        if !official_groups.is_empty() {
+            println!("📦 Official Plugins (available from tsnp-contrib):");
+            for (plugin_name, funcs) in official_groups {
+                let plugin_dir = output_path.join("tsnp-contrib").join(plugin_name);
+                println!("  📁 {}", plugin_dir.display());
+                println!("     ✓ Already implemented in tsnp-contrib/{}", plugin_name);
+                println!("     → Will copy to tsnp-contrib/{}/ when ready", plugin_name);
+                if !funcs.is_empty() {
+                    println!("     📝 Functions: {}", funcs.len());
                 }
-            } else {
-                println!("   📝 Functions: (will be added manually)");
+                println!();
+            }
+        }
+        
+        // 自定义插件
+        if !custom_groups.is_empty() {
+            println!("🔧 Custom Plugins (need implementation):");
+            for (plugin_name, funcs) in custom_groups {
+                let plugin_dir = output_path.join("tsnp").join(plugin_name);
+                println!("  📁 {}", plugin_dir.display());
+                
+                // Windows C 文件
+                let win_c = format!("{}_win.c", plugin_name.replace("-", "_"));
+                println!("     📄 {}", win_c);
+                
+                // Linux/macOS C 文件
+                println!("     📄 {}_linux.c", plugin_name.replace("-", "_"));
+                println!("     📄 {}_macos.c", plugin_name.replace("-", "_"));
+                
+                // 配置文件
+                println!("     📄 ts-native.toml");
+                println!("     📄 ts-native-win.toml");
+                println!("     📄 ts-native-linux.toml");
+                println!("     📄 ts-native-macos.toml");
+                
+                if !funcs.is_empty() {
+                    println!("     📝 Functions:");
+                    for func in funcs {
+                        let params: Vec<String> = func.params.iter()
+                            .map(|p| format!("{}: {}", p.name, p.param_type))
+                            .collect();
+                        println!("        - {}({}) -> {}", func.name, params.join(", "), func.return_type);
+                    }
+                } else {
+                    println!("     📝 Functions: (will be added manually)");
+                }
+                println!();
+            }
+        }
+        
+        let total_plugins = official_groups.len() + custom_groups.len();
+        let total_funcs: usize = official_groups.values().chain(custom_groups.values()).map(|v| v.len()).sum();
+        println!("✅ Would prepare {} plugin(s) with {} function(s)", total_plugins, total_funcs);
+        println!("   - {} official (ready to use)", official_groups.len());
+        println!("   - {} custom (need implementation)", custom_groups.len());
+    } else {
+        println!("\n⚙️  Generating plugins...\n");
+        
+        // 生成官方插件目录（只生成引用，不生成代码）
+        if !official_groups.is_empty() {
+            println!("📦 Official Plugins:");
+            for plugin_name in official_groups.keys() {
+                let contrib_dir = output_path.join("tsnp-contrib").join(plugin_name);
+                fs::create_dir_all(&contrib_dir)?;
+                
+                // 生成 README 说明
+                let readme_path = contrib_dir.join("README.md");
+                let readme_content = format!(
+                    "# {} Plugin (Official)\n\n\
+                     This plugin is already implemented in tsnp-contrib.\n\n\
+                     To use it:\n\
+                     1. Copy from tsnp-contrib/{}/ to your project's tsnp/{}/\n\
+                     2. Add to your .ts.toml: tsnp = [\"{}\"]\n",
+                    plugin_name,
+                    plugin_name,
+                    plugin_name,
+                    plugin_name
+                );
+                
+                fs::write(&readme_path, readme_content)?;
+                println!("  ✓ {} (see {}/README.md)", plugin_name, contrib_dir.display());
             }
             println!();
         }
         
-        let total_funcs: usize = groups.values().map(|v| v.len()).sum();
-        println!("✅ Would prepare {} plugin(s) with {} function(s)", groups.len(), total_funcs);
-    } else {
-        println!("\n⚙️  Generating plugins...\n");
-        
-        for (plugin_name, funcs) in groups {
-            generate_plugin(plugin_name, funcs, output, no_stubs)?;
-            println!();
+        // 生成自定义插件
+        if !custom_groups.is_empty() {
+            println!("🔧 Custom Plugins:");
+            for (plugin_name, funcs) in custom_groups {
+                generate_plugin(plugin_name, funcs, output, no_stubs)?;
+                println!();
+            }
         }
         
-        // 生成 .ts.toml 文件
-        generate_ts_toml(ts_files, groups, output)?;
+        // 生成 .ts.toml 文件（合并官方和自定义）
+        let mut all_groups = official_groups.clone();
+        all_groups.extend(custom_groups.clone());
+        generate_ts_toml(ts_files, &all_groups, output)?;
         
-        let total_funcs: usize = groups.values().map(|v| v.len()).sum();
-        println!("✅ Prepared {} plugin(s) with {} function(s)", groups.len(), total_funcs);
+        let total_plugins = official_groups.len() + custom_groups.len();
+        let total_funcs: usize = official_groups.values().chain(custom_groups.values()).map(|v| v.len()).sum();
+        println!("✅ Prepared {} plugin(s) with {} function(s)", total_plugins, total_funcs);
+        println!("   - {} official (copy from tsnp-contrib/)", official_groups.len());
+        println!("   - {} custom (implement in tsnp/)", custom_groups.len());
     }
     
     Ok(())
@@ -727,6 +787,24 @@ pub fn find_ts_files(dir: &str) -> Result<Vec<String>> {
     Ok(files)
 }
 
+/// 官方插件列表（来自 tsnp-contrib）
+fn get_official_plugins() -> HashSet<String> {
+    let mut plugins = HashSet::new();
+    plugins.insert("http".to_string());
+    plugins.insert("fs".to_string());
+    plugins.insert("crypto".to_string());
+    plugins.insert("os".to_string());
+    plugins.insert("path".to_string());
+    plugins.insert("cli".to_string());
+    plugins.insert("timer".to_string());
+    plugins.insert("json".to_string());
+    plugins.insert("net".to_string());
+    plugins.insert("process".to_string());
+    plugins.insert("log".to_string());
+    plugins.insert("env".to_string());
+    plugins
+}
+
 /// prepare 命令主入口
 pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool, no_stubs: bool) -> Result<()> {
     println!("📦 Analyzing TypeScript files...");
@@ -762,8 +840,13 @@ pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool, no_stubs: b
         // 按插件分组
         let groups = group_by_plugin(&functions);
         
+        // 分类：官方 vs 自定义
+        let official_plugins = get_official_plugins();
+        let (official_groups, custom_groups): (HashMap<_, _>, HashMap<_, _>) = groups.into_iter()
+            .partition(|(name, _)| official_plugins.contains(name));
+        
         // 生成插件
-        generate_plugins_from_groups(&groups, output, dry_run, no_stubs, &ts_files)?;
+        generate_plugins_from_groups(&official_groups, &custom_groups, output, dry_run, no_stubs, &ts_files)?;
     } else {
         println!("  ✓ Detected {} plugin(s) via AST analysis:", detected_plugins.len());
         for plugin in &detected_plugins {
@@ -776,8 +859,13 @@ pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool, no_stubs: b
             groups.insert(plugin.clone(), vec![]);
         }
         
+        // 分类：官方 vs 自定义
+        let official_plugins = get_official_plugins();
+        let (official_groups, custom_groups): (HashMap<_, _>, HashMap<_, _>) = groups.into_iter()
+            .partition(|(name, _)| official_plugins.contains(name));
+        
         // 生成插件
-        generate_plugins_from_groups(&groups, output, dry_run, no_stubs, &ts_files)?;
+        generate_plugins_from_groups(&official_groups, &custom_groups, output, dry_run, no_stubs, &ts_files)?;
     }
     
     Ok(())
