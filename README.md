@@ -127,44 +127,6 @@ cargo tsn prepare --dry-run
 
 ---
 
-### `cargo tsn add` - 添加 Crate 依赖
-
-```bash
-cargo tsn add <crate-name>
-```
-
-**功能**：添加 Rust crate 到 `Cargo.toml`
-
-**示例**：
-```bash
-# 添加 Rust crate
-cargo tsn add serde_json
-```
-
-**说明**：
-- 仅添加 Rust crate 依赖（运行 `cargo add`）
-- **不会**自动生成 FFI 插件
-- 如果需要将 crate 功能暴露给 TypeScript，需要：
-  1. 手动编写 C FFI 函数包装 crate
-  2. 或使用 `cargo tsn prepare` 从 TypeScript 代码生成插件
-
-**工作流示例**：
-```bash
-# 1. 添加 crate
-cargo tsn add sha2
-
-# 2. 在 TypeScript 中使用（如果有对应的官方插件）
-# 不需要手动写 declare function，AST 会自动检测
-
-# 3. 生成插件模板
-cargo tsn prepare
-
-# 4. 从子模块拷贝官方插件（如果有）
-cp -r tsnp-contrib/crypto tsnp/
-```
-
----
-
 ### `cargo tsn list` - 列出插件
 
 ```bash
@@ -339,9 +301,9 @@ cargo tsn prepare --dry-run
 ```
 1. cargo tsn new my-project
    ↓
-2. cargo tsn add some-crate
+2. cargo add some-crate （添加 Rust crate）
    ↓
-3. cargo tsn func（交互式添加函数）
+3. cargo tsn func（交互式添加 FFI 函数）
    ↓
 4. 实现 C 函数
    ↓
@@ -367,7 +329,7 @@ cargo tsn prepare --dry-run
 
 | 插件来源 | 默认优先级 | 说明 |
 |---------|-----------|------|
-| **开发者自定义** | **1000** | 通过 prepare/add/func 命令生成 |
+| **开发者自定义** | **1000** | 通过 prepare/func 命令生成 |
 | **官方插件** | **0** | ts-native 仓库自带的 tsnp-contrib |
 
 ### 设计原理

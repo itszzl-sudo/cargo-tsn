@@ -92,11 +92,14 @@
 
 - 初始版本发布
 - `cargo tsn new` - 创建 ts-native 项目
-- `cargo tsn add` - 添加 crate 依赖
 - `cargo tsn func` - 交互式添加 FFI 函数
 - `cargo tsn publish` - 发布插件
 - `cargo tsn install` - 安装插件
 - `cargo tsn list` - 列出本地插件
+
+### Removed
+
+- `cargo tsn add` - 移除（用户应直接使用 `cargo add`）
 
 ---
 

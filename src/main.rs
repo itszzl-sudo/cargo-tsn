@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{self, Write};
-use std::process::Command;
 use anyhow::{Context, Result};
 
 mod prepare;
@@ -9,7 +8,7 @@ mod prepare;
 #[derive(Parser)]
 #[command(name = "cargo-tsn")]
 #[command(about = "ts-native project manager - plugin generation, dependency management, project scaffolding")]
-#[command(long_about = "cargo-tsn is a project management tool for ts-native compiler.\n\nIt provides:\n- Project scaffolding (cargo tsn new)\n- Plugin generation from TypeScript source (cargo tsn prepare)\n- Dependency management (cargo tsn add)\n- Plugin listing (cargo tsn list)\n\nFor detailed documentation, see: https://github.com/itszzl-sudo/cargo-tsn")]
+#[command(long_about = "cargo-tsn is a project management tool for ts-native compiler.\n\nIt provides:\n- Project scaffolding (cargo tsn new)\n- Plugin generation from TypeScript source (cargo tsn prepare)\n- Plugin listing (cargo tsn list)\n- Interactive FFI function addition (cargo tsn func)\n\nFor detailed documentation, see: https://github.com/itszzl-sudo/cargo-tsn")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -22,12 +21,6 @@ enum Commands {
     New {
         #[arg(help = "Project name")]
         name: String,
-    },
-    #[command(about = "Add a Rust crate dependency")]
-    #[command(long_about = "Add a Rust crate dependency to Cargo.toml.\n\nExample:\n  cargo tsn add serde_json\n\nNote: This only adds the Rust crate. For FFI plugins, use 'cargo tsn prepare' to generate from TypeScript source code.")]
-    Add {
-        #[arg(help = "Crate name (e.g., serde_json, tokio)")]
-        crate_name: String,
     },
     #[command(about = "Interactively add FFI function to existing plugin")]
     #[command(long_about = "Interactively add FFI function to an existing plugin.\n\nThis command provides a wizard to:\n1. Select an existing plugin from tsnp/\n2. Enter function name, parameters, and return type\n3. Automatically generate the FFI function stub\n\nExample:\n  cargo tsn func\n\nNote: This is for adding individual functions to existing plugins.\nFor generating plugins from TypeScript source, use 'cargo tsn prepare' instead.")]
@@ -54,7 +47,6 @@ fn main() -> Result<()> {
     
     match cli.command {
         Commands::New { name } => cmd_new(&name),
-        Commands::Add { crate_name } => cmd_add(&crate_name),
         Commands::Func => cmd_func(),
         Commands::List => cmd_list(),
         Commands::Prepare { input, output, dry_run, no_stubs } => {
@@ -138,31 +130,6 @@ crate-type = ["cdylib"]
     
     println!("✅ Created: {}", name);
     println!("   cd {} && ts-native main.ts", name);
-    
-    Ok(())
-}
-
-fn cmd_add(crate_name: &str) -> Result<()> {
-    println!("Adding crate: {}", crate_name);
-    
-    // 1. cargo add
-    println!("Running: cargo add {}", crate_name);
-    let status = Command::new("cargo")
-        .args(["add", crate_name])
-        .status()
-        .context("Failed to run cargo add")?;
-    
-    if !status.success() {
-        anyhow::bail!("cargo add failed");
-    }
-    
-    println!("\n✅ Added crate: {}", crate_name);
-    println!("\n📝 Next steps:");
-    println!("   1. Add FFI declarations in your TypeScript code:");
-    println!("      declare function {}_func(data: string): string;", crate_name.replace("-", "_"));
-    println!("   2. Run 'cargo tsn prepare' to generate plugin scaffold");
-    println!("   3. Implement C functions in prepare/tsnp/{}/", crate_name);
-    println!("   4. Copy to tsnp/ directory: cp -r prepare/tsnp/{} tsnp/", crate_name);
     
     Ok(())
 }
