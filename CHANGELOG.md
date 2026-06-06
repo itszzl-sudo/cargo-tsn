@@ -97,11 +97,6 @@
 - `cargo tsn install` - 安装插件
 - `cargo tsn list` - 列出本地插件
 
-### Removed
-
-- `cargo tsn add` - 移除（用户应直接使用 `cargo add`）
-- `cargo tsn func` - 移除（已被 `cargo tsn prepare` 替代，AST 分析更智能）
-
 ---
 
 ## 版本说明
