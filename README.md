@@ -92,11 +92,7 @@ cargo tsn prepare [OPTIONS]
 
 **示例**：
 ```bash
-# 生成到默认目录
 cargo tsn prepare
-
-# 指定输出目录
-cargo tsn prepare --output my-plugins
 ```
 
 **输出**：
@@ -120,8 +116,9 @@ cargo tsn prepare --output my-plugins
 **详细文档**：[docs/PREPARE_DESIGN.md](docs/PREPARE_DESIGN.md)
 
 **注意**：
-- 如果输出目录已存在，命令会报错并退出（防止覆盖已有文件）
-- 使用 `--output` 指定不同的输出目录，或删除已有目录后重试
+- 输出目录固定为 `./prepare`，不支持自定义
+- 如果 `prepare/` 目录已存在，命令会报错并退出（防止覆盖已有文件）
+- 需要先删除或重命名已有的 `prepare/` 目录后重试
 
 ---
 

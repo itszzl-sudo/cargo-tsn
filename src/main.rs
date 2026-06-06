@@ -26,17 +26,8 @@ enum Commands {
     #[command(long_about = "List available local plugins from tsnp/ and tsnp-contrib/.\n\nShows:\n- Developer plugins (tsnp/) with priority 1000\n- Official plugins (tsnp-contrib/) with priority 0\n\nExample:\n  cargo tsn list")]
     List,
     #[command(about = "Analyze TypeScript code and generate plugin templates")]
-    #[command(long_about = "Analyze TypeScript source code using AST parsing to detect plugin API usage,\nthen generate plugin templates and dependency declarations.\n\nWhat it does:\n1. Scans TypeScript files for plugin API calls (http_get, fs_writeFile, etc.)\n2. Detects which plugins are needed (http, fs, crypto, etc.)\n3. Generates empty templates for official plugins in prepare/templates/tsnp/\n4. Generates .ts.toml dependency files for each entry point (files with main function)\n\nOfficial plugins (from tsnp-contrib):\n  http, fs, crypto, os, path, cli, timer, json, net, process, log, env\n\nExamples:\n  cargo tsn prepare                     # Scan all *.ts files, output to ./prepare\n  cargo tsn prepare --input main.ts     # Only analyze main.ts\n  cargo tsn prepare --output my-plugins # Output to my-plugins/\n  cargo tsn prepare --dry-run           # Preview without writing files\n\nAfter running prepare:\n  1. Check prepare/has-tsnp-contrib.txt for official plugin list\n  2. Copy needed plugins: cp -r tsnp-contrib/http tsnp/\n  3. Compile: ts-native main.ts")]
-    Prepare {
-        #[arg(long, help = "Input TypeScript file(s) to analyze (default: auto-scan *.ts)")]
-        input: Option<String>,
-        #[arg(long, help = "Output directory (default: ./prepare)")]
-        output: Option<String>,
-        #[arg(long, help = "Preview mode - show what would be generated without writing files")]
-        dry_run: bool,
-        #[arg(long, help = "Disable stub generation - only generate comment templates")]
-        no_stubs: bool,
-    },
+    #[command(long_about = "Analyze TypeScript source code using AST parsing to detect plugin API usage,\nthen generate plugin templates and dependency declarations.\n\nWhat it does:\n1. Scans TypeScript files for plugin API calls (http_get, fs_writeFile, etc.)\n2. Detects which plugins are needed (http, fs, crypto, etc.)\n3. Generates empty templates for official plugins in prepare/templates/tsnp/\n4. Generates .ts.toml dependency files for each entry point (files with main function)\n\nOfficial plugins (from tsnp-contrib):\n  http, fs, crypto, os, path, cli, timer, json, net, process, log, env\n\nExample:\n  cargo tsn prepare\n\nAfter running prepare:\n  1. Check prepare/has-tsnp-contrib.txt for official plugin list\n  2. Copy needed plugins: cp -r tsnp-contrib/http tsnp/\n  3. Compile: ts-native main.ts\n\nNote: Output directory is fixed to ./prepare. If it exists, command will fail.")]
+    Prepare,
 }
 
 fn main() -> Result<()> {
@@ -45,11 +36,8 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::New { name } => cmd_new(&name),
         Commands::List => cmd_list(),
-        Commands::Prepare { input, output, dry_run, no_stubs } => {
-            let input_ref = input.as_deref();
-            // 无参时默认输出到 ./prepare 目录
-            let output_dir = output.as_deref().unwrap_or("prepare");
-            prepare::cmd_prepare(input_ref, output_dir, dry_run, no_stubs)
+        Commands::Prepare => {
+            prepare::cmd_prepare(None, "prepare", false, false)
         }
     }
 }
