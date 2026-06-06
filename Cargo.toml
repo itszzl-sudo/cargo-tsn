@@ -26,3 +26,10 @@ toml = "0.8"
 regex = "1"
 indicatif = "0.17"
 chrono = "0.4"
+
+# AST parsing for TypeScript (same version as ts-native)
+swc_common = "17"
+swc_ecma_ast = "18"
+swc_ecma_parser = "27"
+swc_atoms = "9"
+swc_ecma_visit = "18"

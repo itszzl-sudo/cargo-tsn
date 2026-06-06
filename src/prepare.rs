@@ -1,9 +1,127 @@
 use anyhow::{Context, Result};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use indicatif::{ProgressBar, ProgressStyle};
+use swc_common::{FileName, SourceMap};
+use swc_ecma_ast::*;
+use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsSyntax};
+use swc_ecma_visit::{Visit, VisitWith};
+use std::sync::Arc;
+
+/// API 到插件的映射表
+fn build_api_plugin_map() -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    
+    // HTTP 相关
+    map.insert("fetch".to_string(), "http".to_string());
+    map.insert("XMLHttpRequest".to_string(), "http".to_string());
+    map.insert("http_get".to_string(), "http".to_string());
+    map.insert("http_post".to_string(), "http".to_string());
+    map.insert("http_request".to_string(), "http".to_string());
+    
+    // 文件系统
+    map.insert("writeFileSync".to_string(), "fs".to_string());
+    map.insert("readFileSync".to_string(), "fs".to_string());
+    map.insert("writeFile".to_string(), "fs".to_string());
+    map.insert("readFile".to_string(), "fs".to_string());
+    map.insert("fs_write".to_string(), "fs".to_string());
+    map.insert("fs_read".to_string(), "fs".to_string());
+    
+    // 加密
+    map.insert("sha256".to_string(), "crypto".to_string());
+    map.insert("md5".to_string(), "crypto".to_string());
+    map.insert("createHash".to_string(), "crypto".to_string());
+    map.insert("crypto_encrypt".to_string(), "crypto".to_string());
+    map.insert("crypto_decrypt".to_string(), "crypto".to_string());
+    
+    // 操作系统
+    map.insert("os_type".to_string(), "os".to_string());
+    map.insert("os_cpus".to_string(), "os".to_string());
+    map.insert("os_hostname".to_string(), "os".to_string());
+    
+    // 路径处理
+    map.insert("path_join".to_string(), "path".to_string());
+    map.insert("path_resolve".to_string(), "path".to_string());
+    map.insert("path_basename".to_string(), "path".to_string());
+    
+    // 进程
+    map.insert("process_exit".to_string(), "process".to_string());
+    map.insert("process_env".to_string(), "process".to_string());
+    map.insert("spawn".to_string(), "process".to_string());
+    
+    // 命令行
+    map.insert("cli_args".to_string(), "cli".to_string());
+    map.insert("cli_parse".to_string(), "cli".to_string());
+    
+    // 定时器
+    map.insert("sleep".to_string(), "timer".to_string());
+    map.insert("setTimeout".to_string(), "timer".to_string());
+    map.insert("setInterval".to_string(), "timer".to_string());
+    
+    map
+}
+
+/// AST 访问器，用于检测插件需求
+struct PluginDetector {
+    api_map: HashMap<String, String>,
+    detected_plugins: HashSet<String>,
+}
+
+impl PluginDetector {
+    fn new() -> Self {
+        Self {
+            api_map: build_api_plugin_map(),
+            detected_plugins: HashSet::new(),
+        }
+    }
+    
+    /// 检查函数名是否需要插件
+    fn check_function_name(&mut self, name: &str) {
+        if let Some(plugin) = self.api_map.get(name) {
+            self.detected_plugins.insert(plugin.clone());
+        }
+    }
+    
+    /// 检查成员表达式（如 fs.writeFileSync）
+    fn check_member_expression(&mut self, member: &MemberExpr) {
+        if let MemberProp::Ident(prop) = &member.prop {
+            self.check_function_name(&prop.sym);
+        }
+    }
+}
+
+impl Visit for PluginDetector {
+    fn visit_call_expr(&mut self, call: &CallExpr) {
+        match &call.callee {
+            Callee::Expr(expr) => {
+                match expr.as_ref() {
+                    // 直接调用: fetch(), sha256()
+                    Expr::Ident(ident) => {
+                        self.check_function_name(&ident.sym);
+                    }
+                    // 成员调用: fs.writeFileSync(), crypto.sha256()
+                    Expr::Member(member) => {
+                        self.check_member_expression(member);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        
+        // 继续遍历子节点
+        call.visit_children_with(self);
+    }
+    
+    fn visit_new_expr(&mut self, new: &NewExpr) {
+        if let Expr::Ident(ident) = new.callee.as_ref() {
+            self.check_function_name(&ident.sym);
+        }
+        new.visit_children_with(self);
+    }
+}
 
 /// FFI 函数信息
 #[derive(Debug, Clone)]
@@ -68,6 +186,46 @@ pub fn parse_ffi_declarations(files: &[String]) -> Result<Vec<FFIFunction>> {
     Ok(functions)
 }
 
+/// 使用 AST 分析 TypeScript 代码，检测需要的插件
+pub fn detect_plugins_from_ast(files: &[String]) -> Result<HashSet<String>> {
+    let mut all_plugins = HashSet::new();
+    let cm: Arc<SourceMap> = Default::default();
+    
+    for file in files {
+        let content = fs::read_to_string(file)
+            .context(format!("Failed to read file: {}", file))?;
+        
+        let fm = cm.new_source_file(
+            FileName::Real(file.into()).into(),
+            content,
+        );
+        
+        let lexer = Lexer::new(
+            Syntax::Typescript(TsSyntax {
+                tsx: false,
+                decorators: false,
+                dts: false,
+                no_early_errors: false,
+                disallow_ambiguous_jsx_like: false,
+            }),
+            EsVersion::Es2020,
+            StringInput::from(&*fm),
+            None,
+        );
+        
+        let mut parser = Parser::new_from(lexer);
+        let module = parser.parse_module()
+            .map_err(|e| anyhow::anyhow!("Failed to parse {}: {:?}", file, e))?;
+        
+        let mut detector = PluginDetector::new();
+        module.visit_with(&mut detector);
+        
+        all_plugins.extend(detector.detected_plugins);
+    }
+    
+    Ok(all_plugins)
+}
+
 /// 按插件分组（根据函数名前缀）
 pub fn group_by_plugin(functions: &[FFIFunction]) -> HashMap<String, Vec<FFIFunction>> {
     let mut groups: HashMap<String, Vec<FFIFunction>> = HashMap::new();
@@ -85,6 +243,70 @@ pub fn group_by_plugin(functions: &[FFIFunction]) -> HashMap<String, Vec<FFIFunc
     }
     
     groups
+}
+
+/// 从 groups 生成插件（公共逻辑）
+fn generate_plugins_from_groups(
+    groups: &HashMap<String, Vec<FFIFunction>>,
+    output: &str,
+    dry_run: bool,
+    no_stubs: bool,
+    ts_files: &[String],
+) -> Result<()> {
+    if dry_run {
+        println!("\n🔍 Preview mode (no files will be written):\n");
+        
+        for (plugin_name, funcs) in groups {
+            let plugin_dir = format!("{}/tsnp/{}", output, plugin_name);
+            println!("📁 {}/", plugin_dir);
+            
+            // Windows C 文件
+            let win_c = format!("{}_win.c", plugin_name.replace("-", "_"));
+            println!("   📄 {}", win_c);
+            
+            // Linux/macOS C 文件
+            println!("   📄 {}_linux.c", plugin_name.replace("-", "_"));
+            println!("   📄 {}_macos.c", plugin_name.replace("-", "_"));
+            
+            // 配置文件
+            println!("   📄 ts-native.toml");
+            println!("   📄 ts-native-win.toml");
+            println!("   📄 ts-native-linux.toml");
+            println!("   📄 ts-native-macos.toml");
+            
+            if !funcs.is_empty() {
+                // 函数列表
+                println!("   📝 Functions:");
+                for func in funcs {
+                    let params: Vec<String> = func.params.iter()
+                        .map(|p| format!("{}: {}", p.name, p.param_type))
+                        .collect();
+                    println!("      - {}({}) -> {}", func.name, params.join(", "), func.return_type);
+                }
+            } else {
+                println!("   📝 Functions: (will be added manually)");
+            }
+            println!();
+        }
+        
+        let total_funcs: usize = groups.values().map(|v| v.len()).sum();
+        println!("✅ Would prepare {} plugin(s) with {} function(s)", groups.len(), total_funcs);
+    } else {
+        println!("\n⚙️  Generating plugins...\n");
+        
+        for (plugin_name, funcs) in groups {
+            generate_plugin(plugin_name, funcs, output, no_stubs)?;
+            println!();
+        }
+        
+        // 生成 .ts.toml 文件
+        generate_ts_toml(ts_files, groups, output)?;
+        
+        let total_funcs: usize = groups.values().map(|v| v.len()).sum();
+        println!("✅ Prepared {} plugin(s) with {} function(s)", groups.len(), total_funcs);
+    }
+    
+    Ok(())
 }
 
 /// 生成 .ts.toml 文件
@@ -522,69 +744,40 @@ pub fn cmd_prepare(input: Option<&str>, output: &str, dry_run: bool, no_stubs: b
     
     println!("  ✓ Found: {}", ts_files.join(", "));
     
-    // 2. 解析 FFI 函数
-    let functions = parse_ffi_declarations(&ts_files)?;
+    // 2. 使用 AST 分析检测插件需求
+    println!("\n🔍 Analyzing code with AST...");
+    let detected_plugins = detect_plugins_from_ast(&ts_files)?;
     
-    if functions.is_empty() {
-        anyhow::bail!("No FFI function declarations found");
-    }
-    
-    println!("  ✓ Parsed {} FFI functions", functions.len());
-    
-    // 3. 按插件分组
-    println!("\n🔍 Grouping functions by plugin...");
-    let groups = group_by_plugin(&functions);
-    
-    for (plugin, funcs) in &groups {
-        println!("  ✓ {}: {} function(s)", plugin, funcs.len());
-    }
-    
-    // 4. 生成插件文件
-    if dry_run {
-        println!("\n🔍 Preview mode (no files will be written):\n");
+    if detected_plugins.is_empty() {
+        // 如果没有检测到插件，尝试使用旧的 declare function 方式
+        println!("  ⚠️  No plugin APIs detected via AST, trying declare function parsing...");
+        let functions = parse_ffi_declarations(&ts_files)?;
         
-        for (plugin_name, funcs) in &groups {
-            let plugin_dir = format!("{}/tsnp/{}", output, plugin_name);
-            println!("📁 {}/", plugin_dir);
-            
-            // Windows C 文件
-            let win_c = format!("{}_win.c", plugin_name.replace("-", "_"));
-            println!("   📄 {}", win_c);
-            
-            // Linux/macOS C 文件
-            println!("   📄 {}_linux.c", plugin_name.replace("-", "_"));
-            println!("   📄 {}_macos.c", plugin_name.replace("-", "_"));
-            
-            // 配置文件
-            println!("   📄 ts-native.toml");
-            println!("   📄 ts-native-win.toml");
-            println!("   📄 ts-native-linux.toml");
-            println!("   📄 ts-native-macos.toml");
-            
-            // 函数列表
-            println!("   📝 Functions:");
-            for func in funcs {
-                let params: Vec<String> = func.params.iter()
-                    .map(|p| format!("{}: {}", p.name, p.param_type))
-                    .collect();
-                println!("      - {}({}) -> {}", func.name, params.join(", "), func.return_type);
-            }
-            println!();
+        if functions.is_empty() {
+            anyhow::bail!("No FFI function declarations or plugin API usage found");
         }
         
-        println!("✅ Would prepare {} plugin(s) with {} function(s)", groups.len(), functions.len());
+        println!("  ✓ Parsed {} FFI functions via declare statements", functions.len());
+        
+        // 按插件分组
+        let groups = group_by_plugin(&functions);
+        
+        // 生成插件
+        generate_plugins_from_groups(&groups, output, dry_run, no_stubs, &ts_files)?;
     } else {
-        println!("\n⚙️  Generating plugins...\n");
-        
-        for (plugin_name, funcs) in &groups {
-            generate_plugin(plugin_name, funcs, output, no_stubs)?;
-            println!();
+        println!("  ✓ Detected {} plugin(s) via AST analysis:", detected_plugins.len());
+        for plugin in &detected_plugins {
+            println!("    - {}", plugin);
         }
         
-        // 生成 .ts.toml 文件
-        generate_ts_toml(&ts_files, &groups, output)?;
+        // 构建虚拟的 groups 用于生成
+        let mut groups: HashMap<String, Vec<FFIFunction>> = HashMap::new();
+        for plugin in &detected_plugins {
+            groups.insert(plugin.clone(), vec![]);
+        }
         
-        println!("✅ Prepared {} plugin(s) with {} function(s)", groups.len(), functions.len());
+        // 生成插件
+        generate_plugins_from_groups(&groups, output, dry_run, no_stubs, &ts_files)?;
     }
     
     Ok(())
