@@ -28,6 +28,8 @@ fn build_api_plugin_map() -> HashMap<String, String> {
     map.insert("readFile".to_string(), "fs".to_string());
     map.insert("fs_write".to_string(), "fs".to_string());
     map.insert("fs_read".to_string(), "fs".to_string());
+    map.insert("fs_writeFile".to_string(), "fs".to_string());
+    map.insert("fs_readFile".to_string(), "fs".to_string());
     
     // 加密
     map.insert("sha256".to_string(), "crypto".to_string());
@@ -35,6 +37,8 @@ fn build_api_plugin_map() -> HashMap<String, String> {
     map.insert("createHash".to_string(), "crypto".to_string());
     map.insert("crypto_encrypt".to_string(), "crypto".to_string());
     map.insert("crypto_decrypt".to_string(), "crypto".to_string());
+    map.insert("crypto_sha256".to_string(), "crypto".to_string());
+    map.insert("crypto_md5".to_string(), "crypto".to_string());
     
     // 操作系统
     map.insert("os_type".to_string(), "os".to_string());
