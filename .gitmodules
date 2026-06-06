@@ -1,0 +1,3 @@
+[submodule "tsnp-contrib"]
+	path = tsnp-contrib
+	url = https://github.com/itszzl-sudo/tsnp-contrib.git
