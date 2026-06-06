@@ -263,10 +263,10 @@ fn generate_plugins_from_groups(
         if !official_groups.is_empty() {
             println!("📦 Official Plugins (available from tsnp-contrib):");
             for (plugin_name, funcs) in official_groups {
-                let plugin_dir = output_path.join("tsnp-contrib").join(plugin_name);
+                let plugin_dir = output_path.join("has-tsnp-contrib").join(plugin_name);
                 println!("  📁 {}", plugin_dir.display());
                 println!("     ✓ Already implemented in tsnp-contrib/{}", plugin_name);
-                println!("     → Will copy to tsnp-contrib/{}/ when ready", plugin_name);
+                println!("     → Will copy to has-tsnp-contrib/{}/ when ready", plugin_name);
                 if !funcs.is_empty() {
                     println!("     📝 Functions: {}", funcs.len());
                 }
@@ -274,7 +274,7 @@ fn generate_plugins_from_groups(
             }
         }
         
-        // 自定义插件
+        // 自定义插件（包括官方没有的）
         if !custom_groups.is_empty() {
             println!("🔧 Custom Plugins (need implementation):");
             for (plugin_name, funcs) in custom_groups {
@@ -322,7 +322,7 @@ fn generate_plugins_from_groups(
         if !official_groups.is_empty() {
             println!("📦 Official Plugins:");
             for plugin_name in official_groups.keys() {
-                let contrib_dir = output_path.join("tsnp-contrib").join(plugin_name);
+                let contrib_dir = output_path.join("has-tsnp-contrib").join(plugin_name);
                 fs::create_dir_all(&contrib_dir)?;
                 
                 // 生成 README 说明
