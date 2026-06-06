@@ -95,14 +95,8 @@ cargo tsn prepare [OPTIONS]
 # 生成到默认目录
 cargo tsn prepare
 
-# 指定输入文件
-cargo tsn prepare --input src/api.ts
-
 # 指定输出目录
 cargo tsn prepare --output my-plugins
-
-# 预览模式
-cargo tsn prepare --dry-run
 ```
 
 **输出**：
@@ -124,6 +118,10 @@ cargo tsn prepare --dry-run
 ```
 
 **详细文档**：[docs/PREPARE_DESIGN.md](docs/PREPARE_DESIGN.md)
+
+**注意**：
+- 如果输出目录已存在，命令会报错并退出（防止覆盖已有文件）
+- 使用 `--output` 指定不同的输出目录，或删除已有目录后重试
 
 ---
 

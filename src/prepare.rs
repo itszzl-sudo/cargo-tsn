@@ -327,6 +327,16 @@ fn generate_plugins_from_groups(
     } else {
         println!("\n⚙️  Generating plugins...\n");
         
+        // 检查输出目录是否已存在
+        if output_path.exists() {
+            anyhow::bail!(
+                "Output directory '{}' already exists.\n\
+                 Please remove it or specify a different output directory with --output.\n\
+                 Example: cargo tsn prepare --output prepare-v2",
+                output
+            );
+        }
+        
         // 确保输出目录存在
         fs::create_dir_all(output_path)?;
         

@@ -1,7 +1,0 @@
-[package]
-name = "os"
-version = "0.1.0"
-priority = 0
-
-[capabilities]
-functions = []
