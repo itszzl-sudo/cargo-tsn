@@ -383,7 +383,7 @@ fn generate_ts_toml(ts_files: &[String], groups: &HashMap<String, Vec<FFIFunctio
         let file_stem = path.file_stem()
             .ok_or_else(|| anyhow::anyhow!("Invalid file name: {}", ts_file))?;
         
-        let toml_name = format!("{}.toml", file_stem.to_string_lossy());
+        let toml_name = format!("{}.ts.toml", file_stem.to_string_lossy());
         let toml_path = Path::new(output).join(&toml_name);
         
         // 收集这个文件用到的插件
