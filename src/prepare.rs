@@ -266,16 +266,12 @@ fn generate_plugins_from_groups(
         // 官方插件
         if !official_groups.is_empty() {
             println!("📦 Official Plugins (available from tsnp-contrib):");
-            for (plugin_name, funcs) in official_groups {
-                let plugin_dir = output_path.join("has-tsnp-contrib").join(plugin_name);
-                println!("  📁 {}", plugin_dir.display());
-                println!("     ✓ Already implemented in tsnp-contrib/{}", plugin_name);
-                println!("     → Will copy to has-tsnp-contrib/{}/ when ready", plugin_name);
-                if !funcs.is_empty() {
-                    println!("     📝 Functions: {}", funcs.len());
-                }
-                println!();
+            println!("  📄 has-tsnp-contrib.txt (list of official plugins)");
+            println!("  📁 templates/tsnp/ (empty templates for each plugin)");
+            for plugin_name in official_groups.keys() {
+                println!("    - {} → templates/tsnp/{}/", plugin_name, plugin_name);
             }
+            println!();
         }
         
         // 自定义插件（包括官方没有的）
@@ -322,29 +318,86 @@ fn generate_plugins_from_groups(
     } else {
         println!("\n⚙️  Generating plugins...\n");
         
+        // 确保输出目录存在
+        fs::create_dir_all(output_path)?;
+        
         // 生成官方插件目录（只生成引用，不生成代码）
         if !official_groups.is_empty() {
             println!("📦 Official Plugins:");
+            
+            // 生成 has-tsnp-contrib.txt 文件
+            let contrib_list_path = output_path.join("has-tsnp-contrib.txt");
+            let mut contrib_list_content = String::from("# Official Plugins (from tsnp-contrib)\n\n");
+            contrib_list_content.push_str("These plugins are already implemented. To use them:\n");
+            contrib_list_content.push_str("1. Copy template from prepare/templates/tsnp/<plugin>/ to your project's tsnp/<plugin>/\n");
+            contrib_list_content.push_str("2. Add to your .ts.toml: tsnp = [\"<plugin>\"]\n\n");
+            contrib_list_content.push_str("## Available Plugins\n\n");
+            
             for plugin_name in official_groups.keys() {
-                let contrib_dir = output_path.join("has-tsnp-contrib").join(plugin_name);
-                fs::create_dir_all(&contrib_dir)?;
+                contrib_list_content.push_str(&format!("- {}\n", plugin_name));
+            }
+            
+            fs::write(&contrib_list_path, contrib_list_content)?;
+            println!("  ✓ has-tsnp-contrib.txt ({} plugins)", official_groups.len());
+            
+            // 为每个官方插件生成空模板
+            let templates_dir = output_path.join("templates").join("tsnp");
+            for plugin_name in official_groups.keys() {
+                let template_dir = templates_dir.join(plugin_name);
+                fs::create_dir_all(&template_dir)?;
                 
-                // 生成 README 说明
-                let readme_path = contrib_dir.join("README.md");
-                let readme_content = format!(
-                    "# {} Plugin (Official)\n\n\
-                     This plugin is already implemented in tsnp-contrib.\n\n\
-                     To use it:\n\
-                     1. Copy from tsnp-contrib/{}/ to your project's tsnp/{}/\n\
-                     2. Add to your .ts.toml: tsnp = [\"{}\"]\n",
-                    plugin_name,
-                    plugin_name,
-                    plugin_name,
+                // 生成空的 Windows C 文件（注释模板）
+                let win_c_path = template_dir.join(format!("{}_win.c", plugin_name.replace("-", "_")));
+                let win_c_content = format!(
+                    "// ============================================================\n\
+                     // {} Plugin - Windows Implementation\n\
+                     // ============================================================\n\
+                     // This is an empty template. The actual implementation is in tsnp-contrib/.\n\
+                     // To use the official plugin, copy it from tsnp-contrib/{}// to your project.\n\
+                     // ============================================================\n",
+                    plugin_name, plugin_name
+                );
+                fs::write(&win_c_path, win_c_content)?;
+                
+                // 生成空的 Linux C 文件
+                let linux_c_path = template_dir.join(format!("{}_linux.c", plugin_name.replace("-", "_")));
+                let linux_c_content = format!(
+                    "// ============================================================\n\
+                     // {} Plugin - Linux Implementation\n\
+                     // ============================================================\n\
+                     // TODO: Implement for Linux\n\
+                     // ============================================================\n",
                     plugin_name
                 );
+                fs::write(&linux_c_path, linux_c_content)?;
                 
-                fs::write(&readme_path, readme_content)?;
-                println!("  ✓ {} (see {}/README.md)", plugin_name, contrib_dir.display());
+                // 生成空的 macOS C 文件
+                let macos_c_path = template_dir.join(format!("{}_macos.c", plugin_name.replace("-", "_")));
+                let macos_c_content = format!(
+                    "// ============================================================\n\
+                     // {} Plugin - macOS Implementation\n\
+                     // ============================================================\n\
+                     // TODO: Implement for macOS\n\
+                     // ============================================================\n",
+                    plugin_name
+                );
+                fs::write(&macos_c_path, macos_c_content)?;
+                
+                // 生成配置文件
+                let toml_path = template_dir.join("ts-native.toml");
+                let toml_content = format!(
+                    "[package]\n\
+                     name = \"{}\"\n\
+                     version = \"0.1.0\"\n\
+                     priority = 0\n\
+                     \n\
+                     [capabilities]\n\
+                     functions = []\n",
+                    plugin_name
+                );
+                fs::write(&toml_path, toml_content)?;
+                
+                println!("  ✓ templates/tsnp/{}/ (empty template)", plugin_name);
             }
             println!();
         }

@@ -1,0 +1,12 @@
+# Official Plugins (from tsnp-contrib)
+
+These plugins are already implemented. To use them:
+1. Copy template from prepare/templates/tsnp/<plugin>/ to your project's tsnp/<plugin>/
+2. Add to your .ts.toml: tsnp = ["<plugin>"]
+
+## Available Plugins
+
+- http
+- os
+- fs
+- crypto
