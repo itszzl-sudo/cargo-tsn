@@ -83,34 +83,9 @@ cargo tsn prepare [OPTIONS]
 
 **功能**：从 TypeScript 源码分析插件需求，生成插件模板和依赖声明
 
-**选项**：
-| 选项 | 说明 | 默认值 |
-|------|------|--------|
-| `--input <FILE>` | 指定输入文件 | 自动扫描 *.ts |
-| `--output <DIR>` | 输出目录 | `./prepare` |
-| `--dry-run` | 预览模式（不生成文件） | - |
-
 **示例**：
 ```bash
 cargo tsn prepare
-```
-
-**输出**：
-```
-📦 Analyzing TypeScript files...
-  ✓ Found: main.ts, worker.ts
-  ✓ Detected 4 plugin(s) via AST analysis
-
-📦 Official Plugins:
-  ✓ has-tsnp-contrib.txt (4 plugins)
-  ✓ templates/tsnp/http/
-  ✓ templates/tsnp/crypto/
-
-  ✓ main.ts.toml
-  ✓ worker.ts.toml
-✅ Prepared 4 plugin(s)
-   - 4 official (copy from tsnp-contrib/)
-   - 0 custom (implement in tsnp/)
 ```
 
 **详细文档**：[docs/PREPARE_DESIGN.md](docs/PREPARE_DESIGN.md)
@@ -256,84 +231,6 @@ cargo-tsn/
 | **[tsnp-contrib](https://github.com/itszzl-sudo/tsnp-contrib)** | 官方插件集合 | Git 子模块 |
 
 ---
-cargo tsn prepare --input src/api.ts
-
-# 指定输出目录
-cargo tsn prepare --output my-plugins
-
-# 预览模式
-cargo tsn prepare --dry-run
-```
-
-## 工作流
-
-### 方式一：使用 prepare 命令（推荐）
-
-```
-1. 编写 TypeScript 代码（包含 declare function）
-   ↓
-2. cargo tsn prepare（生成插件骨架到 prepare/）
-   ↓
-3. 在 `prepare/templates/tsnp/` 中查看官方插件模板
-   ↓
-4. cp -r prepare/templates/tsnp/crypto tsnp/     # 只拷贝需要的
-   cp -r prepare/templates/tsnp/http tsnp/      # 选择性拷贝
-   ↓
-5. 手动实现 C 函数
-   ↓
-6. 编译 C 文件为 .o
-   ↓
-7. ts-native main.ts（编译链接）
-   ↓
-8. 运行测试
-```
-
-### 方式二：手动创建插件
-
-```
-1. cargo tsn new my-project
-   ↓
-2. 手动在 tsnp/ 目录创建插件
-   ↓
-3. 编写 C FFI 函数
-   ↓
-4. ts-native main.ts
-   ↓
-5. 运行测试
-```
-
-## 插件优先级系统
-
-### 优先级规则
-
-| 插件来源 | 默认优先级 | 说明 |
-|---------|-----------|------|
-| **开发者自定义** | **1000** | 通过 prepare 命令生成或手动创建 |
-| **官方插件** | **0** | ts-native 仓库自带的 tsnp-contrib |
-
-### 设计原理
-
-- ✅ 自定义插件始终优先于官方插件
-- ✅ 避免能力冲突时选择错误的实现
-- ✅ 清晰的优先级层次
-
-### 示例
-
-```toml
-# tsnp/crypto/ts-native.toml
-[package]
-name = "tsnp-crypto"
-version = "0.1.0"
-priority = 1000  # 自定义插件默认 1000
-```
-
-## 相关工具
-
-| 工具 | 描述 | 安装 |
-|------|------|------|
-| **[ts-native](https://github.com/itszzl-sudo/ts-native/blob/main/README.md)** | TypeScript 到原生可执行文件编译器 | `cargo install ts-native` |
-| **[tsn](https://github.com/itszzl-sudo/ts-native/blob/main/README.md)** | 同上，更短的名称 | `cargo install tsn` |
-| **[tsnp](https://github.com/itszzl-sudo/ts-native/tree/main/tsnp-contrib)** | 从 Rust crate 生成插件配置 | `cargo install tsnp` |
 
 ## 许可证
 

@@ -15,19 +15,14 @@
   - 显示优先级信息
   - 自动搜索 tsnp-contrib 目录（当前目录、上级目录、ts-native 仓库）
 
-- **重新启用 func 命令**
-  - 交互式添加 FFI 函数到现有插件
-  - 实用性强，适合快速添加单个函数
-
-- **新增 --dry-run 预览模式**
+- **新增 prepare 命令**
   - 从 TypeScript 源码自动提取 FFI 函数声明
   - 智能按函数名前缀分组插件（如 `crypto_*`, `http_*`）
   - 生成完整的跨平台文件结构（win/linux/macos）
   - 生成主配置和平台配置文件（TOML 格式）
-  - 使用当前时间戳作为插件优先级（确保唯一性）
   - 生成注释形式的 C 函数模板（不生成桩实现）
   - 实时进度条反馈（indicatif）
-  - 支持 `--input` 指定输入文件，`--output` 指定输出目录
+  - 输出目录固定为 ./prepare
 
 - **C 文件模板策略**
   - Windows 平台生成注释形式的函数模板
@@ -51,9 +46,8 @@
   - 确保自定义插件优先于官方插件
 
 - **修改 prepare 默认输出目录**
-  - 无参时默认输出到 ./prepared 目录
-  - 用户可手动拷贝到 ./tsnp
-  - 避免意外覆盖现有插件
+  - 输出固定到 ./prepare 目录
+  - 如果目录已存在则报错退出（防止覆盖已有文件）
 
 - **禁用 publish 和 install 命令**
   - 原因：缺乏社区贡献
@@ -90,9 +84,8 @@
 
 ### Added
 
-- 初始版本发布
+- **初始版本发布**
 - `cargo tsn new` - 创建 ts-native 项目
-- `cargo tsn func` - 交互式添加 FFI 函数
 - `cargo tsn publish` - 发布插件
 - `cargo tsn install` - 安装插件
 - `cargo tsn list` - 列出本地插件
