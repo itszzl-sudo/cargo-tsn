@@ -8,6 +8,13 @@
 # 安装
 cargo install cargo-tsn
 
+# 克隆项目（包含子模块）
+git clone --recurse-submodules https://github.com/itszzl-sudo/cargo-tsn.git
+cd cargo-tsn
+
+# 如果已经克隆，初始化子模块
+git submodule update --init --recursive
+
 # 创建新项目
 cargo tsn new my-project
 cd my-project
@@ -17,8 +24,11 @@ cd my-project
 cargo tsn prepare
 
 # 在 prepare/ 中编辑、选择需要的插件
-cp -r prepare/tsnp/crypto tsnp/        # 只拷贝需要的
-cp -r prepare/tsnp/http tsnp/          # 选择性拷贝
+# 官方插件：从 tsnp-contrib/ 拷贝
+cp -r ../tsnp-contrib/http tsnp/        # 官方 HTTP 插件
+cp -r ../tsnp-contrib/fs tsnp/          # 官方文件系统插件
+# 自定义插件：从 prepare/tsnp/ 拷贝
+cp -r prepare/tsnp/crypto tsnp/         # 自定义加密插件
 
 # 编译运行
 ts-native main.ts
@@ -33,6 +43,60 @@ ts-native main.ts
 - **FFI 插件生成**：从 TypeScript 声明自动生成 C 插件骨架
 - **依赖管理**：管理插件依赖关系
 - **智能优先级**：自定义插件默认优先级 1000，高于官方插件（0）
+
+## 官方插件库（子模块）
+
+cargo-tsn 包含 [tsnp-contrib](https://github.com/itszzl-sudo/tsnp-contrib) 作为 Git 子模块，提供官方插件实现：
+
+### 可用插件
+
+| 插件 | 功能 | 平台 |
+|------|------|------|
+| [http](tsnp-contrib/http/) | HTTP 请求 | Windows, Linux, macOS |
+| [fs](tsnp-contrib/fs/) | 文件系统操作 | Windows, Linux, macOS |
+| [crypto](tsnp-contrib/crypto/) | 加密哈希 | Windows, Linux, macOS |
+| [os](tsnp-contrib/os/) | 操作系统信息 | Windows, Linux, macOS |
+| [path](tsnp-contrib/path/) | 路径处理 | Windows, Linux, macOS |
+| [cli](tsnp-contrib/cli/) | 命令行参数 | Windows, Linux, macOS |
+| [timer](tsnp-contrib/timer/) | 定时器 | Windows, Linux, macOS |
+| [json](tsnp-contrib/json/) | JSON 解析 | Windows, Linux, macOS |
+| [net](tsnp-contrib/net/) | 网络套接字 | Windows, Linux, macOS |
+| [process](tsnp-contrib/process/) | 进程管理 | Windows, Linux, macOS |
+| [log](tsnp-contrib/log/) | 日志系统 | Windows, Linux, macOS |
+| [env](tsnp-contrib/env/) | 环境变量 | Windows, Linux, macOS |
+
+### 使用官方插件
+
+```bash
+# 1. 准备项目
+cargo tsn prepare
+
+# 2. 查看官方插件列表
+cat prepare/has-tsnp-contrib.txt
+
+# 3. 从子模块拷贝需要的插件
+cp -r tsnp-contrib/http tsnp/
+cp -r tsnp-contrib/fs tsnp/
+
+# 4. 编译
+ts-native main.ts
+```
+
+### 子模块管理
+
+```bash
+# 克隆时初始化子模块
+git clone --recurse-submodules https://github.com/itszzl-sudo/cargo-tsn.git
+
+# 或者手动初始化
+git submodule update --init --recursive
+
+# 更新子模块到最新版本
+git submodule update --remote tsnp-contrib
+
+# 查看子模块状态
+git submodule status
+```
 
 ## 核心功能
 
